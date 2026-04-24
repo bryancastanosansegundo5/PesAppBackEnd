@@ -1,10 +1,12 @@
 package com.pesapp.pesapp.usuarios.service;
 
 import com.pesapp.pesapp.usuarios.model.dto.AuthResponseDto;
+import com.pesapp.pesapp.usuarios.model.dto.AuthSessionDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarEstadoUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarRolUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CrearUsuarioAdminRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.LoginRequestDto;
+import com.pesapp.pesapp.usuarios.model.dto.LogoutResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.RegistroUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.UsuarioResponseDto;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
@@ -12,9 +14,13 @@ import java.util.List;
 
 public interface UsuarioService {
 
-    AuthResponseDto registrar(RegistroUsuarioRequestDto request);
+    AuthSessionDto registrar(RegistroUsuarioRequestDto request);
 
-    AuthResponseDto login(LoginRequestDto request);
+    AuthSessionDto login(LoginRequestDto request);
+
+    AuthSessionDto refrescarSesion(String refreshToken);
+
+    LogoutResponseDto logout(String refreshToken);
 
     UsuarioVO obtenerUsuarioAutenticado();
 

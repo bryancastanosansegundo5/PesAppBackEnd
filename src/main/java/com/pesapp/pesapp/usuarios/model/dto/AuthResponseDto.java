@@ -7,8 +7,9 @@ import lombok.Getter;
 @AllArgsConstructor
 public class AuthResponseDto {
 
-    private String token;
     private String tokenType;
-    private long expiresIn;
+    private long accessTokenExpiresIn;
+    private long refreshTokenExpiresIn;
+    private boolean authenticated;
     private UsuarioResponseDto usuario;
 }

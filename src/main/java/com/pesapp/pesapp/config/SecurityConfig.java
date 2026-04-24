@@ -1,6 +1,7 @@
 package com.pesapp.pesapp.config;
 
 import com.pesapp.pesapp.security.JwtAuthenticationFilter;
+import com.pesapp.pesapp.security.SecurityExceptionHandlers;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final SecurityExceptionHandlers securityExceptionHandlers;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -46,9 +48,19 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(securityExceptionHandlers)
+                        .accessDeniedHandler(securityExceptionHandlers))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/", "/api/auth/login", "/api/auth/registro", "/actuator/health").permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/api/auth/login",
+                                "/api/auth/registro",
+                                "/api/auth/refresh",
+                                "/api/auth/logout",
+                                "/actuator/health")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/entrenamientos", "/api/sesiones-entrenamiento")
                         .permitAll()
                         .requestMatchers("/api/ejercicios/**").hasAnyRole("ADMIN", "COACH", "USUARIO")

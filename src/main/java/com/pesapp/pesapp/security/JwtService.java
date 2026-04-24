@@ -47,6 +47,10 @@ public class JwtService {
                 .compact();
     }
 
+    public long getExpirationTime() {
+        return expirationTime;
+    }
+
     public String extraerEmail(String token) {
         return extraerClaims(token).getSubject();
     }
@@ -58,10 +62,6 @@ public class JwtService {
         } catch (JwtException | IllegalArgumentException exception) {
             return false;
         }
-    }
-
-    public long getExpirationTime() {
-        return expirationTime;
     }
 
     private boolean estaExpirado(String token) {

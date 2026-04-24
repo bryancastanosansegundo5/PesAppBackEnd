@@ -2,21 +2,33 @@ package com.pesapp.pesapp.usuarios.service.impl;
 
 import com.pesapp.pesapp.security.JwtService;
 import com.pesapp.pesapp.usuarios.model.dto.AuthResponseDto;
+import com.pesapp.pesapp.usuarios.model.dto.AuthSessionDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarEstadoUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarRolUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CrearUsuarioAdminRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.LoginRequestDto;
+import com.pesapp.pesapp.usuarios.model.dto.LogoutResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.RegistroUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.UsuarioResponseDto;
 import com.pesapp.pesapp.usuarios.model.vo.RolUsuario;
+import com.pesapp.pesapp.usuarios.model.vo.RefreshTokenVO;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
+import com.pesapp.pesapp.usuarios.repository.RefreshTokenRepository;
 import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
 import jakarta.persistence.EntityNotFoundException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Base64;
+import java.security.SecureRandom;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,13 +42,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class UsuarioServiceImpl implements UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${app.auth.refresh-token-expiration}")
+    private long refreshTokenExpiration;
 
     @Override
     @Transactional
-    public AuthResponseDto registrar(RegistroUsuarioRequestDto request) {
+    public AuthSessionDto registrar(RegistroUsuarioRequestDto request) {
         String email = normalizarEmail(request.getEmail());
         if (usuarioRepository.existsByEmailIgnoreCase(email)) {
             throw new IllegalArgumentException("Ya existe un usuario registrado con ese email");
@@ -56,19 +73,55 @@ public class UsuarioServiceImpl implements UsuarioService {
                 .roles(guardado.getRol().name())
                 .build();
 
-        return crearAuthResponse(guardado, userDetails);
+        return crearSesionAutenticada(guardado, userDetails);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public AuthResponseDto login(LoginRequestDto request) {
+    public AuthSessionDto login(LoginRequestDto request) {
         String email = normalizarEmail(request.getEmail());
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, request.getPassword()));
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         UsuarioVO usuario = buscarPorEmail(email);
 
-        return crearAuthResponse(usuario, userDetails);
+        return crearSesionAutenticada(usuario, userDetails);
+    }
+
+    @Override
+    @Transactional
+    public AuthSessionDto refrescarSesion(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new BadCredentialsException("No se ha proporcionado refresh token");
+        }
+
+        RefreshTokenVO tokenPersistido = refreshTokenRepository.findByTokenHash(hashToken(refreshToken))
+                .orElseThrow(() -> new BadCredentialsException("Refresh token no valido"));
+
+        if (!tokenPersistido.estaActivo()) {
+            throw new BadCredentialsException("Refresh token expirado o revocado");
+        }
+
+        tokenPersistido.setRevokedAt(LocalDateTime.now());
+        UsuarioVO usuario = tokenPersistido.getUsuario();
+        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
+                .username(usuario.getEmail())
+                .password(usuario.getPasswordHash())
+                .roles(usuario.getRol().name())
+                .build();
+
+        return crearSesionAutenticada(usuario, userDetails);
+    }
+
+    @Override
+    @Transactional
+    public LogoutResponseDto logout(String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenRepository.revocarPorHash(hashToken(refreshToken), LocalDateTime.now());
+        }
+
+        SecurityContextHolder.clearContext();
+        return new LogoutResponseDto(true, "Sesion cerrada correctamente");
     }
 
     @Override
@@ -132,9 +185,23 @@ public class UsuarioServiceImpl implements UsuarioService {
         return toResponse(usuario);
     }
 
-    private AuthResponseDto crearAuthResponse(UsuarioVO usuario, UserDetails userDetails) {
-        String token = jwtService.generarToken(userDetails, usuario.getId());
-        return new AuthResponseDto(token, "Bearer", jwtService.getExpirationTime(), toResponse(usuario));
+    private AuthSessionDto crearSesionAutenticada(UsuarioVO usuario, UserDetails userDetails) {
+        String accessToken = jwtService.generarToken(userDetails, usuario.getId());
+        String refreshTokenPlano = generarRefreshTokenPlano();
+
+        RefreshTokenVO refreshToken = new RefreshTokenVO();
+        refreshToken.setUsuario(usuario);
+        refreshToken.setTokenHash(hashToken(refreshTokenPlano));
+        refreshToken.setExpiresAt(LocalDateTime.now().plusNanos(refreshTokenExpiration * 1_000_000));
+        refreshTokenRepository.save(refreshToken);
+
+        AuthResponseDto response = new AuthResponseDto(
+                "Cookie",
+                jwtService.getExpirationTime(),
+                refreshTokenExpiration,
+                true,
+                toResponse(usuario));
+        return new AuthSessionDto(accessToken, refreshTokenPlano, response);
     }
 
     private UsuarioVO buscarPorEmail(String email) {
@@ -161,5 +228,25 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     private String normalizarEmail(String email) {
         return email.trim().toLowerCase();
+    }
+
+    private String generarRefreshTokenPlano() {
+        byte[] bytes = new byte[48];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("No se ha podido generar el hash del refresh token", exception);
+        }
     }
 }
