@@ -68,8 +68,8 @@ public class RegistroEjercicioVO extends AuditoriaVO {
     @Column(precision = 10, scale = 2)
     private BigDecimal pesoBase;
 
-    @Column(precision = 10, scale = 2)
-    private BigDecimal alturaBanco;
+    @Column(length = 100)
+    private String alturaBanco;
 
     @Column(length = 100)
     private String agarre;

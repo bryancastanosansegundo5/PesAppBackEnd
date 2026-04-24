@@ -51,14 +51,14 @@ public class JwtService {
         return expirationTime;
     }
 
-    public String extraerEmail(String token) {
+    public String extraerUsername(String token) {
         return extraerClaims(token).getSubject();
     }
 
     public boolean esTokenValido(String token, UserDetails userDetails) {
         try {
-            String email = extraerEmail(token);
-            return email.equals(userDetails.getUsername()) && !estaExpirado(token);
+            String username = extraerUsername(token);
+            return username.equals(userDetails.getUsername()) && !estaExpirado(token);
         } catch (JwtException | IllegalArgumentException exception) {
             return false;
         }

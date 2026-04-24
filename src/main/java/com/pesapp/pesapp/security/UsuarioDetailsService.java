@@ -17,16 +17,17 @@ public class UsuarioDetailsService implements UserDetailsService {
     private final UsuarioRepository usuarioRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        UsuarioVO usuario = usuarioRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new UsernameNotFoundException("No existe el usuario " + email));
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        String credencial = username == null ? "" : username.trim();
+        UsuarioVO usuario = usuarioRepository.findByUsernameIgnoreCase(credencial)
+                .orElseThrow(() -> new UsernameNotFoundException("No existe el usuario " + credencial));
 
         if (!usuario.isActivo()) {
             throw new DisabledException("El usuario esta desactivado");
         }
 
         return User.builder()
-                .username(usuario.getEmail())
+                .username(usuario.getUsername())
                 .password(usuario.getPasswordHash())
                 .roles(usuario.getRol().name())
                 .disabled(!usuario.isActivo())

@@ -20,7 +20,10 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "usuarios",
-        uniqueConstraints = @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email"))
+        uniqueConstraints = {
+            @UniqueConstraint(name = "uq_usuarios_email", columnNames = "email"),
+            @UniqueConstraint(name = "uq_usuarios_username", columnNames = "username")
+        })
 public class UsuarioVO extends AuditoriaVO {
 
     @Id
@@ -30,7 +33,10 @@ public class UsuarioVO extends AuditoriaVO {
     @Column(nullable = false, length = 120)
     private String nombre;
 
-    @Column(nullable = false, length = 180)
+    @Column(nullable = false, length = 60)
+    private String username;
+
+    @Column(length = 180)
     private String email;
 
     @Column(nullable = false, length = 255)

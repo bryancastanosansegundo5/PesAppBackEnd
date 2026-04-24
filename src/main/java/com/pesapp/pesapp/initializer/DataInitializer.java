@@ -7,12 +7,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
+@Order(1)
 @ConditionalOnProperty(name = "app.initializer.enabled", havingValue = "true")
 public class DataInitializer implements CommandLineRunner {
 
@@ -25,6 +27,9 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${app.initializer.default-user-email}")
     private String defaultUserEmail;
 
+    @Value("${app.initializer.default-user-username:}")
+    private String defaultUserUsername;
+
     @Value("${app.initializer.default-user-password}")
     private String defaultUserPassword;
 
@@ -35,10 +40,14 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         String email = defaultUserEmail.trim().toLowerCase();
+        String username = resolverUsername(email);
         RolUsuario rol = parseRol(defaultUserRole);
 
         UsuarioVO existente = usuarioRepository.findByEmailIgnoreCase(email).orElse(null);
         if (existente != null) {
+            if (existente.getUsername() == null || existente.getUsername().isBlank()) {
+                existente.setUsername(username);
+            }
             if (existente.getRol() != rol) {
                 existente.setRol(rol);
             }
@@ -47,6 +56,7 @@ public class DataInitializer implements CommandLineRunner {
 
         UsuarioVO usuario = new UsuarioVO();
         usuario.setNombre(defaultUserName.trim());
+        usuario.setUsername(username);
         usuario.setEmail(email);
         usuario.setPasswordHash(passwordEncoder.encode(defaultUserPassword));
         usuario.setRol(rol);
@@ -61,5 +71,14 @@ public class DataInitializer implements CommandLineRunner {
         } catch (IllegalArgumentException exception) {
             throw new IllegalStateException("DEFAULT_USER_ROLE debe ser ADMIN, COACH o USUARIO");
         }
+    }
+
+    private String resolverUsername(String email) {
+        if (defaultUserUsername != null && !defaultUserUsername.isBlank()) {
+            return defaultUserUsername.trim().toLowerCase();
+        }
+
+        String localPart = email.substring(0, email.indexOf('@')).toLowerCase();
+        return localPart.isBlank() ? "admin" : localPart;
     }
 }

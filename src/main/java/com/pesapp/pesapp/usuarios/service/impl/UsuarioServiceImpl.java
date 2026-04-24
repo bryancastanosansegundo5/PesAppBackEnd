@@ -1,11 +1,14 @@
 package com.pesapp.pesapp.usuarios.service.impl;
 
 import com.pesapp.pesapp.security.JwtService;
+import com.pesapp.pesapp.usuarios.exception.ConflictException;
+import com.pesapp.pesapp.usuarios.model.dto.ActualizarPerfilUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.AuthResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.AuthSessionDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarEstadoUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarRolUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CrearUsuarioAdminRequestDto;
+import com.pesapp.pesapp.usuarios.model.dto.DisponibilidadUsernameResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.LoginRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.LogoutResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.RegistroUsuarioRequestDto;
@@ -25,6 +28,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Base64;
 import java.security.SecureRandom;
+import java.util.Locale;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,6 +46,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UsuarioServiceImpl implements UsuarioService {
 
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
+            Pattern.CASE_INSENSITIVE);
+
     private final UsuarioRepository usuarioRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -55,35 +63,29 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     public AuthSessionDto registrar(RegistroUsuarioRequestDto request) {
         String email = normalizarEmail(request.getEmail());
-        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
-            throw new IllegalArgumentException("Ya existe un usuario registrado con ese email");
-        }
+        String username = resolverUsernameDisponible(request.getUsername(), null);
+        validarEmailDisponible(email, null);
 
         UsuarioVO usuario = new UsuarioVO();
         usuario.setNombre(request.getNombre().trim());
+        usuario.setUsername(username);
         usuario.setEmail(email);
         usuario.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         usuario.setRol(RolUsuario.USUARIO);
         usuario.setActivo(true);
 
         UsuarioVO guardado = usuarioRepository.save(usuario);
-        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
-                .username(guardado.getEmail())
-                .password(guardado.getPasswordHash())
-                .roles(guardado.getRol().name())
-                .build();
-
-        return crearSesionAutenticada(guardado, userDetails);
+        return crearSesionAutenticada(guardado, crearUserDetails(guardado));
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthSessionDto login(LoginRequestDto request) {
-        String email = normalizarEmail(request.getEmail());
+        String username = normalizarUsername(request.getUsername());
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+                new UsernamePasswordAuthenticationToken(username, request.getPassword()));
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        UsuarioVO usuario = buscarPorEmail(email);
+        UsuarioVO usuario = buscarPorUsername(username);
 
         return crearSesionAutenticada(usuario, userDetails);
     }
@@ -104,13 +106,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         tokenPersistido.setRevokedAt(LocalDateTime.now());
         UsuarioVO usuario = tokenPersistido.getUsuario();
-        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
-                .username(usuario.getEmail())
-                .password(usuario.getPasswordHash())
-                .roles(usuario.getRol().name())
-                .build();
-
-        return crearSesionAutenticada(usuario, userDetails);
+        return crearSesionAutenticada(usuario, crearUserDetails(usuario));
     }
 
     @Override
@@ -132,13 +128,37 @@ public class UsuarioServiceImpl implements UsuarioService {
             throw new IllegalArgumentException("No hay un usuario autenticado");
         }
 
-        return buscarPorEmail(authentication.getName());
+        return buscarPorUsername(authentication.getName());
     }
 
     @Override
     @Transactional(readOnly = true)
     public UsuarioResponseDto obtenerPerfil() {
         return toResponse(obtenerUsuarioAutenticado());
+    }
+
+    @Override
+    @Transactional
+    public UsuarioResponseDto actualizarPerfil(ActualizarPerfilUsuarioRequestDto request) {
+        UsuarioVO usuario = obtenerUsuarioAutenticado();
+        String email = normalizarEmail(request.getEmail());
+        String username = normalizarUsername(request.getUsername());
+        validarFormatoEmail(email);
+        validarUsernameDisponible(username, usuario.getId());
+        validarEmailDisponible(email, usuario.getId());
+
+        usuario.setNombre(request.getNombre().trim());
+        usuario.setUsername(username);
+        usuario.setEmail(email);
+
+        return toResponse(usuarioRepository.saveAndFlush(usuario));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DisponibilidadUsernameResponseDto comprobarDisponibilidadUsername(String username) {
+        String usernameNormalizado = normalizarUsername(username);
+        return new DisponibilidadUsernameResponseDto(!usuarioRepository.existsByUsernameIgnoreCase(usernameNormalizado));
     }
 
     @Override
@@ -155,12 +175,12 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     public UsuarioResponseDto crearUsuarioDesdeAdmin(CrearUsuarioAdminRequestDto request) {
         String email = normalizarEmail(request.getEmail());
-        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
-            throw new IllegalArgumentException("Ya existe un usuario registrado con ese email");
-        }
+        String username = resolverUsernameDisponible(request.getUsername(), null);
+        validarEmailDisponible(email, null);
 
         UsuarioVO usuario = new UsuarioVO();
         usuario.setNombre(request.getNombre().trim());
+        usuario.setUsername(username);
         usuario.setEmail(email);
         usuario.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         usuario.setRol(request.getRol());
@@ -204,8 +224,8 @@ public class UsuarioServiceImpl implements UsuarioService {
         return new AuthSessionDto(accessToken, refreshTokenPlano, response);
     }
 
-    private UsuarioVO buscarPorEmail(String email) {
-        return usuarioRepository.findByEmailIgnoreCase(email)
+    private UsuarioVO buscarPorUsername(String username) {
+        return usuarioRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new EntityNotFoundException("No existe el usuario autenticado"));
     }
 
@@ -218,6 +238,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         UsuarioResponseDto response = new UsuarioResponseDto();
         response.setId(usuario.getId());
         response.setNombre(usuario.getNombre());
+        response.setUsername(usuario.getUsername());
         response.setEmail(usuario.getEmail());
         response.setRol(usuario.getRol());
         response.setActivo(usuario.isActivo());
@@ -227,7 +248,70 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     private String normalizarEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return null;
+        }
         return email.trim().toLowerCase();
+    }
+
+    private String resolverUsernameDisponible(String usernameSolicitado, Long usuarioIdActual) {
+        String usernameNormalizado = normalizarUsername(usernameSolicitado);
+        validarUsernameDisponible(usernameNormalizado, usuarioIdActual);
+        return usernameNormalizado;
+    }
+
+    private String normalizarUsername(String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("El nombre de usuario es obligatorio");
+        }
+        return sanitizarUsername(username.trim());
+    }
+
+    private String sanitizarUsername(String value) {
+        String sanitizado = value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]", "");
+        if (sanitizado.isBlank()) {
+            throw new IllegalArgumentException("El nombre de usuario no contiene caracteres validos");
+        }
+        if (sanitizado.length() < 3 || sanitizado.length() > 60) {
+            throw new IllegalArgumentException("El nombre de usuario debe tener entre 3 y 60 caracteres");
+        }
+        return sanitizado;
+    }
+
+    private void validarUsernameDisponible(String username, Long usuarioIdActual) {
+        boolean duplicado = usuarioIdActual == null
+                ? usuarioRepository.existsByUsernameIgnoreCase(username)
+                : usuarioRepository.existsByUsernameIgnoreCaseAndIdNot(username, usuarioIdActual);
+        if (duplicado) {
+            throw new ConflictException("Ya existe un usuario registrado con ese nombre de usuario");
+        }
+    }
+
+    private void validarEmailDisponible(String email, Long usuarioIdActual) {
+        if (email == null) {
+            return;
+        }
+
+        boolean duplicado = usuarioIdActual == null
+                ? usuarioRepository.existsByEmailIgnoreCase(email)
+                : usuarioRepository.existsByEmailIgnoreCaseAndIdNot(email, usuarioIdActual);
+        if (duplicado) {
+            throw new ConflictException("Ya existe un usuario registrado con ese email");
+        }
+    }
+
+    private void validarFormatoEmail(String email) {
+        if (email != null && !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new IllegalArgumentException("El email no tiene un formato valido");
+        }
+    }
+
+    private UserDetails crearUserDetails(UsuarioVO usuario) {
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(usuario.getUsername())
+                .password(usuario.getPasswordHash())
+                .roles(usuario.getRol().name())
+                .build();
     }
 
     private String generarRefreshTokenPlano() {

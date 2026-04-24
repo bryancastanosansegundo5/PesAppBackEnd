@@ -1,6 +1,7 @@
 package com.pesapp.pesapp.entrenamientos.repository;
 
 import com.pesapp.pesapp.entrenamientos.model.vo.RegistroEjercicioVO;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,6 +17,20 @@ public interface RegistroEjercicioRepository extends JpaRepository<RegistroEjerc
     Optional<RegistroEjercicioVO> findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
             Long plantillaEjercicioId,
             Long usuarioId);
+
+    @Query("""
+            select distinct ejercicio
+              from RegistroEjercicioVO ejercicio
+              join fetch ejercicio.registroEntrenamiento entrenamiento
+              left join fetch ejercicio.seriesRealizadas series
+              left join fetch ejercicio.ejercicioCatalogo catalogo
+              left join fetch ejercicio.plantillaEjercicio plantilla
+              left join fetch plantilla.ejercicioCatalogo plantillaCatalogo
+             where entrenamiento.usuario.id = :usuarioId
+               and ejercicio.omitido = false
+             order by entrenamiento.fechaFinalizacion desc, entrenamiento.id desc, ejercicio.id desc, series.orden asc
+            """)
+    List<RegistroEjercicioVO> findHistoricoVisibleByUsuarioId(@Param("usuarioId") Long usuarioId);
 
     @Modifying
     @Query("""

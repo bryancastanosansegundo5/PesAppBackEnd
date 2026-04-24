@@ -3,6 +3,8 @@ package com.pesapp.pesapp.usuarios.controller;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarEstadoUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CambiarRolUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.CrearUsuarioAdminRequestDto;
+import com.pesapp.pesapp.usuarios.model.dto.ActualizarPerfilUsuarioRequestDto;
+import com.pesapp.pesapp.usuarios.model.dto.DisponibilidadUsernameResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.UsuarioResponseDto;
 import com.pesapp.pesapp.usuarios.model.vo.RolUsuario;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,6 +38,23 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponseDto> crearUsuario(
             @Valid @RequestBody CrearUsuarioAdminRequestDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearUsuarioDesdeAdmin(request));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UsuarioResponseDto> obtenerMiPerfil() {
+        return ResponseEntity.ok(usuarioService.obtenerPerfil());
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<UsuarioResponseDto> actualizarMiPerfil(
+            @Valid @RequestBody ActualizarPerfilUsuarioRequestDto request) {
+        return ResponseEntity.ok(usuarioService.actualizarPerfil(request));
+    }
+
+    @GetMapping("/disponibilidad-username")
+    public ResponseEntity<DisponibilidadUsernameResponseDto> comprobarDisponibilidadUsername(
+            @RequestParam String username) {
+        return ResponseEntity.ok(usuarioService.comprobarDisponibilidadUsername(username));
     }
 
     @PatchMapping("/{id}/rol")

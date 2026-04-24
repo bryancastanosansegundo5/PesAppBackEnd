@@ -20,7 +20,7 @@ public class RegistroEjercicioResponseDto {
     private Integer seriesPlanificadas;
     private Integer repeticionesPlanificadas;
     private BigDecimal pesoPlanificado;
-    private BigDecimal alturaBanco;
+    private String alturaBanco;
     private String agarre;
     private boolean completado;
     private boolean omitido;

@@ -60,12 +60,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private boolean autenticarSiEsValido(String token, HttpServletRequest request) {
         try {
-            String email = jwtService.extraerEmail(token);
-            if (email == null) {
+            String username = jwtService.extraerUsername(token);
+            if (username == null) {
                 return false;
             }
 
-            UserDetails userDetails = usuarioDetailsService.loadUserByUsername(email);
+            UserDetails userDetails = usuarioDetailsService.loadUserByUsername(username);
             if (!jwtService.esTokenValido(token, userDetails)) {
                 return false;
             }

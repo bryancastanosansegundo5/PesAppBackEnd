@@ -1,8 +1,6 @@
 package com.pesapp.pesapp.entrenamientos.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.pesapp.pesapp.config.FlexibleBigDecimalDeserializer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -48,12 +46,10 @@ public class RegistroEjercicioRequestDto {
     private Integer repeticionesPlanificadas;
 
     @DecimalMin(value = "0.0", inclusive = true, message = "El peso base no puede ser negativo")
-    @JsonDeserialize(using = FlexibleBigDecimalDeserializer.class)
     private BigDecimal pesoPlanificado;
 
-    @DecimalMin(value = "0.0", inclusive = true, message = "La altura del banco no puede ser negativa")
-    @JsonDeserialize(using = FlexibleBigDecimalDeserializer.class)
-    private BigDecimal alturaBanco;
+    @Size(max = 100, message = "La altura del banco no puede superar 100 caracteres")
+    private String alturaBanco;
 
     @Size(max = 100, message = "El agarre no puede superar 100 caracteres")
     private String agarre;

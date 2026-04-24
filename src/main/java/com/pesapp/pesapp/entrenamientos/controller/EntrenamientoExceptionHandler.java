@@ -1,6 +1,7 @@
 package com.pesapp.pesapp.entrenamientos.controller;
 
 import com.pesapp.pesapp.entrenamientos.model.dto.ErrorResponseDto;
+import com.pesapp.pesapp.usuarios.exception.ConflictException;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +24,11 @@ public class EntrenamientoExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDto> handleBadRequest(IllegalArgumentException exception) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Peticion no valida", List.of(exception.getMessage()));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponseDto> handleConflict(ConflictException exception) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflicto", List.of(exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

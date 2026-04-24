@@ -1,6 +1,6 @@
 package com.pesapp.pesapp.usuarios.model.dto;
 
-import jakarta.validation.constraints.Email;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,9 +9,9 @@ import lombok.Setter;
 @Setter
 public class LoginRequestDto {
 
-    @Email(message = "El email no tiene un formato valido")
-    @NotBlank(message = "El email es obligatorio")
-    private String email;
+    @JsonAlias({"identificador"})
+    @NotBlank(message = "El nombre de usuario es obligatorio")
+    private String username;
 
     @NotBlank(message = "La contrasena es obligatoria")
     private String password;
