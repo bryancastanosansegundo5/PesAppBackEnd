@@ -9,9 +9,9 @@
 		<relativePath/>
 	</parent>
 	<groupId>com.pesapp</groupId>
-	<artifactId>pesapp</artifactId>
+	<artifactId>PesAppBackEnd</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>pesapp</name>
+	<name>PesAppBackEnd</name>
 	<description>Aplicación para la gestión de pesos en el gimnasio</description>
 <properties>
 		<java.version>21</java.version>
