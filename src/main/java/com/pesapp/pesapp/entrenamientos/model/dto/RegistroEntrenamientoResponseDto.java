@@ -10,13 +10,10 @@ import lombok.Setter;
 @Setter
 public class RegistroEntrenamientoResponseDto {
 
-    private Long id;
-    private Long plantillaSesionId;
-    private Long usuarioId;
+    private String id;
+    private String idSesion;
     private String nombreSesion;
     private LocalDateTime fechaInicio;
-    private LocalDateTime fechaFinalizacion;
+    private LocalDateTime fechaFin;
     private List<RegistroEjercicioResponseDto> ejercicios = new ArrayList<>();
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

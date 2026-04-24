@@ -25,6 +25,9 @@ public class RegistroSerieVO extends AuditoriaVO {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 120)
+    private String idFrontend;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "registro_ejercicio_id", nullable = false)
     private RegistroEjercicioVO registroEjercicio;

@@ -29,6 +29,9 @@ public class PlantillaSesionEntrenamientoVO extends AuditoriaVO {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 120)
+    private String idFrontend;
+
     @Column(nullable = false, length = 150)
     private String nombre;
 

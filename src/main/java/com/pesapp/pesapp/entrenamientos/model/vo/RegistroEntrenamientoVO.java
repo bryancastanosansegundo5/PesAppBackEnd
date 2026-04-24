@@ -30,6 +30,9 @@ public class RegistroEntrenamientoVO extends AuditoriaVO {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 120)
+    private String idFrontend;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plantilla_sesion_id")
     private PlantillaSesionEntrenamientoVO plantillaSesion;

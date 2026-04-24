@@ -10,4 +10,6 @@ public interface SesionEntrenamientoRepository extends JpaRepository<PlantillaSe
     List<PlantillaSesionEntrenamientoVO> findAllByUsuario_IdOrderByNombreAsc(Long usuarioId);
 
     Optional<PlantillaSesionEntrenamientoVO> findByIdAndUsuario_Id(Long id, Long usuarioId);
+
+    Optional<PlantillaSesionEntrenamientoVO> findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(String idFrontend, Long usuarioId);
 }

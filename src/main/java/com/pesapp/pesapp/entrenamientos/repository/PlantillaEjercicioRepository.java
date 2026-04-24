@@ -8,5 +8,15 @@ public interface PlantillaEjercicioRepository extends JpaRepository<PlantillaEje
 
     Optional<PlantillaEjercicioVO> findByIdAndPlantillaSesion_Usuario_Id(Long id, Long usuarioId);
 
+    Optional<PlantillaEjercicioVO> findFirstByIdFrontendAndPlantillaSesion_Usuario_IdOrderByIdDesc(
+            String idFrontend,
+            Long usuarioId);
+
+    Optional<PlantillaEjercicioVO> findFirstByIdFrontendAndPlantillaSesion_IdOrderByIdDesc(
+            String idFrontend,
+            Long plantillaSesionId);
+
     boolean existsByIdAndPlantillaSesion_Usuario_Id(Long id, Long usuarioId);
+
+    boolean existsByIdFrontendAndPlantillaSesion_Usuario_Id(String idFrontend, Long usuarioId);
 }

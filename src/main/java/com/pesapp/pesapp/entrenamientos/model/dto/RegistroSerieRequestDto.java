@@ -1,5 +1,8 @@
 package com.pesapp.pesapp.entrenamientos.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.pesapp.pesapp.config.FlexibleBigDecimalDeserializer;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -9,7 +12,10 @@ import lombok.Setter;
 
 @Getter
 @Setter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RegistroSerieRequestDto {
+
+    private String id;
 
     @NotNull(message = "El numero de serie es obligatorio")
     @Min(value = 1, message = "El numero de serie debe ser mayor que cero")
@@ -20,9 +26,6 @@ public class RegistroSerieRequestDto {
     private Integer repeticiones;
 
     @DecimalMin(value = "0.0", inclusive = true, message = "El peso no puede ser negativo")
+    @JsonDeserialize(using = FlexibleBigDecimalDeserializer.class)
     private BigDecimal peso;
-
-    @NotNull(message = "El orden es obligatorio")
-    @Min(value = 1, message = "El orden debe ser mayor que cero")
-    private Integer orden;
 }

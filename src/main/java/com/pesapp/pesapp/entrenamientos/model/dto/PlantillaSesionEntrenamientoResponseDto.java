@@ -10,9 +10,10 @@ import lombok.Setter;
 @Setter
 public class PlantillaSesionEntrenamientoResponseDto {
 
-    private Long id;
-    private String nombre;
+    private String id;
+    private String idSesion;
+    private String nombreSesion;
+    private LocalDateTime fechaInicio;
+    private LocalDateTime fechaFin;
     private List<PlantillaEjercicioResponseDto> ejercicios = new ArrayList<>();
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

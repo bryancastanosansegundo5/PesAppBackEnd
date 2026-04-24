@@ -25,6 +25,9 @@ public class PlantillaEjercicioVO extends AuditoriaVO {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 120)
+    private String idFrontend;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "plantilla_sesion_id", nullable = false)
     private PlantillaSesionEntrenamientoVO plantillaSesion;

@@ -29,6 +29,9 @@ public class RegistroEjercicioVO extends AuditoriaVO {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 120)
+    private String idFrontend;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "registro_entrenamiento_id", nullable = false)
     private RegistroEntrenamientoVO registroEntrenamiento;
@@ -39,9 +42,6 @@ public class RegistroEjercicioVO extends AuditoriaVO {
 
     @Column(nullable = false, length = 150)
     private String nombre;
-
-    @Column(length = 1000)
-    private String descripcion;
 
     @Column(nullable = false)
     private Integer seriesBase;
@@ -57,6 +57,9 @@ public class RegistroEjercicioVO extends AuditoriaVO {
 
     @Column(length = 100)
     private String agarre;
+
+    @Column(nullable = false)
+    private boolean completado;
 
     @Column(nullable = false)
     private boolean omitido;

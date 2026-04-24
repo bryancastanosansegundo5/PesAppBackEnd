@@ -10,6 +10,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 @RestControllerAdvice(basePackages = "com.pesapp.pesapp")
 public class EntrenamientoExceptionHandler {
@@ -32,6 +33,14 @@ public class EntrenamientoExceptionHandler {
                 .toList();
 
         return buildResponse(HttpStatus.BAD_REQUEST, "Validacion no valida", mensajes);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDto> handleNotReadable(HttpMessageNotReadableException exception) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Peticion no valida",
+                List.of("El cuerpo de la peticion contiene valores con formato no compatible"));
     }
 
     @ExceptionHandler(AuthenticationException.class)

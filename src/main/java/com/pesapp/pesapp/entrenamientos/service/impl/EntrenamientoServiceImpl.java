@@ -17,6 +17,7 @@ import com.pesapp.pesapp.entrenamientos.repository.RegistroEjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.SesionEntrenamientoRepository;
 import com.pesapp.pesapp.entrenamientos.service.EntrenamientoService;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
+import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
@@ -24,6 +25,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,18 +39,20 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
     private final PlantillaEjercicioRepository plantillaEjercicioRepository;
     private final RegistroEjercicioRepository registroEjercicioRepository;
     private final UsuarioService usuarioService;
+    private final UsuarioRepository usuarioRepository;
 
     @Override
     @Transactional
     public RegistroEntrenamientoResponseDto guardarEntrenamientoFinalizado(RegistroEntrenamientoRequestDto request) {
-        UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
+        UsuarioVO usuario = obtenerUsuarioContexto();
         RegistroEntrenamientoVO entrenamiento = new RegistroEntrenamientoVO();
-        entrenamiento.setPlantillaSesion(buscarPlantillaSesionOpcional(request.getPlantillaSesionId(), usuario.getId()));
+        entrenamiento.setIdFrontend(normalizarNullable(request.getId()));
+        entrenamiento.setPlantillaSesion(buscarPlantillaSesionOpcional(request.getIdSesion(), usuario.getId()));
         entrenamiento.setUsuario(usuario);
         entrenamiento.setNombreSesion(normalizar(request.getNombreSesion()));
         entrenamiento.setFechaInicio(request.getFechaInicio() == null ? LocalDateTime.now() : request.getFechaInicio());
         entrenamiento.setFechaFinalizacion(
-                request.getFechaFinalizacion() == null ? LocalDateTime.now() : request.getFechaFinalizacion());
+                request.getFechaFin() == null ? LocalDateTime.now() : request.getFechaFin());
 
         validarFechas(entrenamiento);
         request.getEjercicios().forEach(ejercicioRequest -> entrenamiento.addEjercicio(toEntity(ejercicioRequest)));
@@ -107,23 +112,45 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
                 .orElseThrow(() -> new EntityNotFoundException("No existe el entrenamiento con id " + id));
     }
 
-    private PlantillaSesionEntrenamientoVO buscarPlantillaSesionOpcional(Long plantillaSesionId, Long usuarioId) {
-        if (plantillaSesionId == null) {
+    private PlantillaSesionEntrenamientoVO buscarPlantillaSesionOpcional(String plantillaSesionId, Long usuarioId) {
+        if (plantillaSesionId == null || plantillaSesionId.isBlank()) {
             return null;
         }
 
-        return sesionEntrenamientoRepository.findByIdAndUsuario_Id(plantillaSesionId, usuarioId)
+        Long plantillaSesionNumerica = parseId(plantillaSesionId);
+        if (plantillaSesionNumerica != null) {
+            PlantillaSesionEntrenamientoVO sesion =
+                    sesionEntrenamientoRepository.findByIdAndUsuario_Id(plantillaSesionNumerica, usuarioId).orElse(null);
+            if (sesion != null) {
+                return sesion;
+            }
+        }
+
+        return sesionEntrenamientoRepository
+                .findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(plantillaSesionId.trim(), usuarioId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "No existe la sesion de entrenamiento con id " + plantillaSesionId));
     }
 
-    private PlantillaEjercicioVO buscarPlantillaEjercicioOpcional(Long plantillaEjercicioId) {
-        if (plantillaEjercicioId == null) {
+    private PlantillaEjercicioVO buscarPlantillaEjercicioOpcional(String plantillaEjercicioId) {
+        if (plantillaEjercicioId == null || plantillaEjercicioId.isBlank()) {
             return null;
         }
 
-        UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
-        return plantillaEjercicioRepository.findByIdAndPlantillaSesion_Usuario_Id(plantillaEjercicioId, usuario.getId())
+        UsuarioVO usuario = obtenerUsuarioContexto();
+        Long plantillaEjercicioNumerico = parseId(plantillaEjercicioId);
+        if (plantillaEjercicioNumerico != null) {
+            PlantillaEjercicioVO ejercicio = plantillaEjercicioRepository
+                    .findByIdAndPlantillaSesion_Usuario_Id(plantillaEjercicioNumerico, usuario.getId())
+                    .orElse(null);
+            if (ejercicio != null) {
+                return ejercicio;
+            }
+        }
+
+        return plantillaEjercicioRepository
+                .findFirstByIdFrontendAndPlantillaSesion_Usuario_IdOrderByIdDesc(
+                        plantillaEjercicioId.trim(), usuario.getId())
                 .orElseThrow(() -> new EntityNotFoundException(
                         "No existe el ejercicio de plantilla con id " + plantillaEjercicioId));
     }
@@ -132,29 +159,33 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         validarEjercicio(request);
 
         RegistroEjercicioVO ejercicio = new RegistroEjercicioVO();
-        ejercicio.setPlantillaEjercicio(buscarPlantillaEjercicioOpcional(request.getPlantillaEjercicioId()));
+        ejercicio.setIdFrontend(normalizarNullable(request.getIdEjercicio()));
+        ejercicio.setPlantillaEjercicio(buscarPlantillaEjercicioOpcional(request.getIdEjercicio()));
         ejercicio.setNombre(normalizar(request.getNombre()));
-        ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
-        ejercicio.setSeriesBase(request.getSeriesBase());
-        ejercicio.setRepeticionesBase(request.getRepeticionesBase());
-        ejercicio.setPesoBase(request.getPesoBase());
+        ejercicio.setSeriesBase(request.getSeriesPlanificadas());
+        ejercicio.setRepeticionesBase(request.getRepeticionesPlanificadas());
+        ejercicio.setPesoBase(request.getPesoPlanificado());
         ejercicio.setAlturaBanco(request.getAlturaBanco());
         ejercicio.setAgarre(normalizarNullable(request.getAgarre()));
+        ejercicio.setCompletado(request.isCompletado());
         ejercicio.setOmitido(request.isOmitido());
 
         if (!request.isOmitido()) {
-            request.getSeriesRealizadas().forEach(serieRequest -> ejercicio.addSerieRealizada(toEntity(serieRequest)));
+            for (int i = 0; i < request.getSeriesRealizadas().size(); i++) {
+                ejercicio.addSerieRealizada(toEntity(request.getSeriesRealizadas().get(i), i + 1));
+            }
         }
 
         return ejercicio;
     }
 
-    private RegistroSerieVO toEntity(RegistroSerieRequestDto request) {
+    private RegistroSerieVO toEntity(RegistroSerieRequestDto request, int orden) {
         RegistroSerieVO serie = new RegistroSerieVO();
+        serie.setIdFrontend(normalizarNullable(request.getId()));
         serie.setNumeroSerie(request.getNumeroSerie());
         serie.setRepeticiones(request.getRepeticiones());
         serie.setPeso(request.getPeso());
-        serie.setOrden(request.getOrden());
+        serie.setOrden(orden);
         return serie;
     }
 
@@ -173,55 +204,81 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
 
     private RegistroEntrenamientoResponseDto toResponse(RegistroEntrenamientoVO entrenamiento) {
         RegistroEntrenamientoResponseDto response = new RegistroEntrenamientoResponseDto();
-        response.setId(entrenamiento.getId());
-        response.setPlantillaSesionId(entrenamiento.getPlantillaSesion() == null
+        response.setId(textoConPreferencia(entrenamiento.getIdFrontend(), entrenamiento.getId()));
+        response.setIdSesion(entrenamiento.getPlantillaSesion() == null
                 ? null
-                : entrenamiento.getPlantillaSesion().getId());
-        response.setUsuarioId(entrenamiento.getUsuario().getId());
+                : textoConPreferencia(
+                        entrenamiento.getPlantillaSesion().getIdFrontend(),
+                        entrenamiento.getPlantillaSesion().getId()));
         response.setNombreSesion(entrenamiento.getNombreSesion());
         response.setFechaInicio(entrenamiento.getFechaInicio());
-        response.setFechaFinalizacion(entrenamiento.getFechaFinalizacion());
+        response.setFechaFin(entrenamiento.getFechaFinalizacion());
         response.setEjercicios(entrenamiento.getEjercicios().stream().map(this::toResponse).toList());
-        response.setCreatedAt(entrenamiento.getCreatedAt());
-        response.setUpdatedAt(entrenamiento.getUpdatedAt());
         return response;
     }
 
     private RegistroEjercicioResponseDto toResponse(RegistroEjercicioVO ejercicio) {
         RegistroEjercicioResponseDto response = new RegistroEjercicioResponseDto();
-        response.setId(ejercicio.getId());
-        response.setRegistroEntrenamientoId(ejercicio.getRegistroEntrenamiento().getId());
-        response.setPlantillaEjercicioId(ejercicio.getPlantillaEjercicio() == null
-                ? null
-                : ejercicio.getPlantillaEjercicio().getId());
+        response.setIdEjercicio(ejercicio.getPlantillaEjercicio() == null
+                ? textoConPreferencia(ejercicio.getIdFrontend(), ejercicio.getId())
+                : textoConPreferencia(
+                        ejercicio.getPlantillaEjercicio().getIdFrontend(),
+                        ejercicio.getPlantillaEjercicio().getId()));
         response.setNombre(ejercicio.getNombre());
-        response.setDescripcion(ejercicio.getDescripcion());
-        response.setSeriesBase(ejercicio.getSeriesBase());
-        response.setRepeticionesBase(ejercicio.getRepeticionesBase());
-        response.setPesoBase(ejercicio.getPesoBase());
+        response.setSeriesPlanificadas(ejercicio.getSeriesBase());
+        response.setRepeticionesPlanificadas(ejercicio.getRepeticionesBase());
+        response.setPesoPlanificado(ejercicio.getPesoBase());
         response.setAlturaBanco(ejercicio.getAlturaBanco());
         response.setAgarre(ejercicio.getAgarre());
+        response.setCompletado(ejercicio.isCompletado());
         response.setOmitido(ejercicio.isOmitido());
         response.setSeriesRealizadas(ejercicio.getSeriesRealizadas().stream()
                 .sorted(Comparator.comparing(RegistroSerieVO::getOrden).thenComparing(RegistroSerieVO::getId))
                 .map(this::toResponse)
                 .toList());
-        response.setCreatedAt(ejercicio.getCreatedAt());
-        response.setUpdatedAt(ejercicio.getUpdatedAt());
         return response;
     }
 
     private RegistroSerieResponseDto toResponse(RegistroSerieVO serie) {
         RegistroSerieResponseDto response = new RegistroSerieResponseDto();
-        response.setId(serie.getId());
-        response.setRegistroEjercicioId(serie.getRegistroEjercicio().getId());
+        response.setId(textoConPreferencia(serie.getIdFrontend(), serie.getId()));
         response.setNumeroSerie(serie.getNumeroSerie());
         response.setRepeticiones(serie.getRepeticiones());
         response.setPeso(serie.getPeso());
-        response.setOrden(serie.getOrden());
-        response.setCreatedAt(serie.getCreatedAt());
-        response.setUpdatedAt(serie.getUpdatedAt());
         return response;
+    }
+
+    private UsuarioVO obtenerUsuarioContexto() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getName() != null
+                && !"anonymousUser".equals(authentication.getName())) {
+            return usuarioService.obtenerUsuarioAutenticado();
+        }
+
+        return usuarioRepository.findFirstByOrderByIdAsc()
+                .orElseThrow(() -> new EntityNotFoundException("No existe un usuario disponible para guardar datos"));
+    }
+
+    private Long parseId(String id) {
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.valueOf(id.trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private String toTexto(Long id) {
+        return id == null ? null : String.valueOf(id);
+    }
+
+    private String textoConPreferencia(String idFrontend, Long idInterno) {
+        return (idFrontend != null && !idFrontend.isBlank()) ? idFrontend : toTexto(idInterno);
     }
 
     private String normalizar(String valor) {
