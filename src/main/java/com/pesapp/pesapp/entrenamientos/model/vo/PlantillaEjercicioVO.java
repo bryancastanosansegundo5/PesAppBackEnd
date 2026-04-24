@@ -32,11 +32,24 @@ public class PlantillaEjercicioVO extends AuditoriaVO {
     @JoinColumn(name = "plantilla_sesion_id", nullable = false)
     private PlantillaSesionEntrenamientoVO plantillaSesion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ejercicio_id")
+    private EjercicioVO ejercicioCatalogo;
+
     @Column(nullable = false, length = 150)
     private String nombre;
 
     @Column(length = 1000)
     private String descripcion;
+
+    @Column(length = 100)
+    private String grupoMuscular;
+
+    @Column(length = 100)
+    private String patronMovimiento;
+
+    @Column(length = 120)
+    private String equipamiento;
 
     @Column(nullable = false)
     private Integer seriesBase;

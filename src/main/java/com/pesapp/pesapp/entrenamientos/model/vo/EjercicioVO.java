@@ -1,6 +1,6 @@
 package com.pesapp.pesapp.entrenamientos.model.vo;
 
-import jakarta.persistence.CascadeType;
+import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -9,11 +9,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,27 +19,16 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "registros_ejercicio")
-public class RegistroEjercicioVO extends AuditoriaVO {
+@Table(name = "ejercicios")
+public class EjercicioVO extends AuditoriaVO {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 120)
-    private String idFrontend;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "registro_entrenamiento_id", nullable = false)
-    private RegistroEntrenamientoVO registroEntrenamiento;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "plantilla_ejercicio_id")
-    private PlantillaEjercicioVO plantillaEjercicio;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ejercicio_id")
-    private EjercicioVO ejercicioCatalogo;
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private UsuarioVO usuario;
 
     @Column(nullable = false, length = 150)
     private String nombre;
@@ -60,31 +46,17 @@ public class RegistroEjercicioVO extends AuditoriaVO {
     private String equipamiento;
 
     @Column(nullable = false)
-    private Integer seriesBase;
+    private Integer seriesPlanificadas;
 
     @Column(nullable = false)
-    private Integer repeticionesBase;
+    private Integer repeticionesPlanificadas;
 
     @Column(precision = 10, scale = 2)
-    private BigDecimal pesoBase;
+    private BigDecimal pesoPlanificado;
 
     @Column(precision = 10, scale = 2)
     private BigDecimal alturaBanco;
 
     @Column(length = 100)
     private String agarre;
-
-    @Column(nullable = false)
-    private boolean completado;
-
-    @Column(nullable = false)
-    private boolean omitido;
-
-    @OneToMany(mappedBy = "registroEjercicio", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<RegistroSerieVO> seriesRealizadas = new ArrayList<>();
-
-    public void addSerieRealizada(RegistroSerieVO serie) {
-        seriesRealizadas.add(serie);
-        serie.setRegistroEjercicio(this);
-    }
 }

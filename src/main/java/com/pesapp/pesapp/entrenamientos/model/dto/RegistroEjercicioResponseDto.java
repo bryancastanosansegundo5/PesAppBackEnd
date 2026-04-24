@@ -11,7 +11,12 @@ import lombok.Setter;
 public class RegistroEjercicioResponseDto {
 
     private String idEjercicio;
+    private String catalogoEjercicioId;
     private String nombre;
+    private String descripcion;
+    private String grupoMuscular;
+    private String patronMovimiento;
+    private String equipamiento;
     private Integer seriesPlanificadas;
     private Integer repeticionesPlanificadas;
     private BigDecimal pesoPlanificado;

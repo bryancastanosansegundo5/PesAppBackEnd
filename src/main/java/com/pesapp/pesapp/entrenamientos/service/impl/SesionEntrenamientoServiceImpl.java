@@ -4,8 +4,10 @@ import com.pesapp.pesapp.entrenamientos.model.dto.PlantillaEjercicioRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.PlantillaEjercicioResponseDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.PlantillaSesionEntrenamientoRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.PlantillaSesionEntrenamientoResponseDto;
+import com.pesapp.pesapp.entrenamientos.model.vo.EjercicioVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.PlantillaEjercicioVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.PlantillaSesionEntrenamientoVO;
+import com.pesapp.pesapp.entrenamientos.repository.EjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.PlantillaEjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.SesionEntrenamientoRepository;
 import com.pesapp.pesapp.entrenamientos.service.SesionEntrenamientoService;
@@ -30,6 +32,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
 
     private final SesionEntrenamientoRepository sesionEntrenamientoRepository;
     private final PlantillaEjercicioRepository plantillaEjercicioRepository;
+    private final EjercicioRepository ejercicioRepository;
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
 
@@ -196,7 +199,13 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
     }
 
     private void copiarCampos(PlantillaEjercicioRequestDto request, PlantillaEjercicioVO ejercicio) {
+        EjercicioVO ejercicioCatalogo = buscarEjercicioCatalogoOpcional(request.getCatalogoEjercicioId());
+        ejercicio.setEjercicioCatalogo(ejercicioCatalogo);
         ejercicio.setNombre(normalizar(request.getNombre()));
+        ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
+        ejercicio.setGrupoMuscular(normalizarNullable(request.getGrupoMuscular()));
+        ejercicio.setPatronMovimiento(normalizarNullable(request.getPatronMovimiento()));
+        ejercicio.setEquipamiento(normalizarNullable(request.getEquipamiento()));
         ejercicio.setSeriesBase(request.getSeriesPlanificadas());
         ejercicio.setRepeticionesBase(request.getRepeticionesPlanificadas());
         ejercicio.setPesoBase(request.getPesoPlanificado());
@@ -216,13 +225,35 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
     private PlantillaEjercicioResponseDto toResponse(PlantillaEjercicioVO ejercicio) {
         PlantillaEjercicioResponseDto response = new PlantillaEjercicioResponseDto();
         response.setIdEjercicio(textoConPreferencia(ejercicio.getIdFrontend(), ejercicio.getId()));
+        response.setCatalogoEjercicioId(
+                ejercicio.getEjercicioCatalogo() == null ? null : toTexto(ejercicio.getEjercicioCatalogo().getId()));
         response.setNombre(ejercicio.getNombre());
+        response.setDescripcion(ejercicio.getDescripcion());
+        response.setGrupoMuscular(ejercicio.getGrupoMuscular());
+        response.setPatronMovimiento(ejercicio.getPatronMovimiento());
+        response.setEquipamiento(ejercicio.getEquipamiento());
         response.setSeriesPlanificadas(ejercicio.getSeriesBase());
         response.setRepeticionesPlanificadas(ejercicio.getRepeticionesBase());
         response.setPesoPlanificado(ejercicio.getPesoBase());
         response.setAlturaBanco(ejercicio.getAlturaBanco());
         response.setAgarre(ejercicio.getAgarre());
         return response;
+    }
+
+    private EjercicioVO buscarEjercicioCatalogoOpcional(String ejercicioId) {
+        if (ejercicioId == null || ejercicioId.isBlank()) {
+            return null;
+        }
+
+        UsuarioVO usuario = obtenerUsuarioContexto();
+        Long ejercicioNumerico = parseId(ejercicioId);
+        if (ejercicioNumerico == null) {
+            throw new EntityNotFoundException("No existe el ejercicio del catalogo con id " + ejercicioId);
+        }
+
+        return ejercicioRepository.findByIdAndUsuario_Id(ejercicioNumerico, usuario.getId())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "No existe el ejercicio del catalogo con id " + ejercicioId));
     }
 
     private UsuarioVO obtenerUsuarioContexto() {

@@ -1,17 +1,14 @@
 package com.pesapp.pesapp.entrenamientos.model.dto;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
-public class PlantillaEjercicioResponseDto {
+public class EjercicioResponseDto {
 
-    private String idEjercicio;
-    private String catalogoEjercicioId;
+    private String id;
     private String nombre;
     private String descripcion;
     private String grupoMuscular;
@@ -22,7 +19,4 @@ public class PlantillaEjercicioResponseDto {
     private BigDecimal pesoPlanificado;
     private BigDecimal alturaBanco;
     private String agarre;
-    private boolean completado;
-    private boolean omitido;
-    private List<RegistroSerieResponseDto> seriesRealizadas = new ArrayList<>();
 }

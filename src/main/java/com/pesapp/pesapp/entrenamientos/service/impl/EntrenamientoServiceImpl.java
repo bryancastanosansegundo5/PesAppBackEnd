@@ -6,12 +6,14 @@ import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoRequestDt
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoResponseDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroSerieRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroSerieResponseDto;
+import com.pesapp.pesapp.entrenamientos.model.vo.EjercicioVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.PlantillaEjercicioVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.PlantillaSesionEntrenamientoVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.RegistroEjercicioVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.RegistroEntrenamientoVO;
 import com.pesapp.pesapp.entrenamientos.model.vo.RegistroSerieVO;
 import com.pesapp.pesapp.entrenamientos.repository.EntrenamientoRepository;
+import com.pesapp.pesapp.entrenamientos.repository.EjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.PlantillaEjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.RegistroEjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.SesionEntrenamientoRepository;
@@ -36,6 +38,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
 
     private final EntrenamientoRepository entrenamientoRepository;
     private final SesionEntrenamientoRepository sesionEntrenamientoRepository;
+    private final EjercicioRepository ejercicioRepository;
     private final PlantillaEjercicioRepository plantillaEjercicioRepository;
     private final RegistroEjercicioRepository registroEjercicioRepository;
     private final UsuarioService usuarioService;
@@ -80,15 +83,28 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
     @Transactional(readOnly = true)
     public Optional<RegistroEjercicioResponseDto> obtenerUltimoRegistroEjercicio(Long plantillaEjercicioId) {
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
-        if (!plantillaEjercicioRepository.existsByIdAndPlantillaSesion_Usuario_Id(plantillaEjercicioId, usuario.getId())) {
+        boolean existeCatalogo = ejercicioRepository.existsByIdAndUsuario_Id(plantillaEjercicioId, usuario.getId());
+        boolean existeLegacy =
+                plantillaEjercicioRepository.existsByIdAndPlantillaSesion_Usuario_Id(plantillaEjercicioId, usuario.getId());
+
+        if (!existeCatalogo && !existeLegacy) {
             throw new EntityNotFoundException("No existe el ejercicio de plantilla con id " + plantillaEjercicioId);
         }
 
-        return registroEjercicioRepository
-                .findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
-                        plantillaEjercicioId,
-                        usuario.getId())
-                .map(this::toResponse);
+        Optional<RegistroEjercicioVO> ultimoRegistro = Optional.empty();
+        if (existeCatalogo) {
+            ultimoRegistro = registroEjercicioRepository
+                    .findFirstByEjercicioCatalogo_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
+                            plantillaEjercicioId, usuario.getId());
+        }
+
+        if (ultimoRegistro.isEmpty() && existeLegacy) {
+            ultimoRegistro = registroEjercicioRepository
+                    .findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
+                            plantillaEjercicioId, usuario.getId());
+        }
+
+        return ultimoRegistro.map(this::toResponse);
     }
 
     @Override
@@ -157,11 +173,18 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
 
     private RegistroEjercicioVO toEntity(RegistroEjercicioRequestDto request) {
         validarEjercicio(request);
+        PlantillaEjercicioVO plantillaEjercicio = buscarPlantillaEjercicioOpcional(request.getIdEjercicio());
+        EjercicioVO ejercicioCatalogo = buscarEjercicioCatalogoOpcional(request.getCatalogoEjercicioId(), plantillaEjercicio);
 
         RegistroEjercicioVO ejercicio = new RegistroEjercicioVO();
         ejercicio.setIdFrontend(normalizarNullable(request.getIdEjercicio()));
-        ejercicio.setPlantillaEjercicio(buscarPlantillaEjercicioOpcional(request.getIdEjercicio()));
+        ejercicio.setPlantillaEjercicio(plantillaEjercicio);
+        ejercicio.setEjercicioCatalogo(ejercicioCatalogo);
         ejercicio.setNombre(normalizar(request.getNombre()));
+        ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
+        ejercicio.setGrupoMuscular(normalizarNullable(request.getGrupoMuscular()));
+        ejercicio.setPatronMovimiento(normalizarNullable(request.getPatronMovimiento()));
+        ejercicio.setEquipamiento(normalizarNullable(request.getEquipamiento()));
         ejercicio.setSeriesBase(request.getSeriesPlanificadas());
         ejercicio.setRepeticionesBase(request.getRepeticionesPlanificadas());
         ejercicio.setPesoBase(request.getPesoPlanificado());
@@ -177,6 +200,22 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         }
 
         return ejercicio;
+    }
+
+    private EjercicioVO buscarEjercicioCatalogoOpcional(String ejercicioId, PlantillaEjercicioVO plantillaEjercicio) {
+        if (ejercicioId != null && !ejercicioId.isBlank()) {
+            UsuarioVO usuario = obtenerUsuarioContexto();
+            Long ejercicioNumerico = parseId(ejercicioId);
+            if (ejercicioNumerico == null) {
+                throw new EntityNotFoundException("No existe el ejercicio del catalogo con id " + ejercicioId);
+            }
+
+            return ejercicioRepository.findByIdAndUsuario_Id(ejercicioNumerico, usuario.getId())
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "No existe el ejercicio del catalogo con id " + ejercicioId));
+        }
+
+        return plantillaEjercicio == null ? null : plantillaEjercicio.getEjercicioCatalogo();
     }
 
     private RegistroSerieVO toEntity(RegistroSerieRequestDto request, int orden) {
@@ -224,7 +263,12 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
                 : textoConPreferencia(
                         ejercicio.getPlantillaEjercicio().getIdFrontend(),
                         ejercicio.getPlantillaEjercicio().getId()));
+        response.setCatalogoEjercicioId(obtenerCatalogoEjercicioId(ejercicio));
         response.setNombre(ejercicio.getNombre());
+        response.setDescripcion(ejercicio.getDescripcion());
+        response.setGrupoMuscular(ejercicio.getGrupoMuscular());
+        response.setPatronMovimiento(ejercicio.getPatronMovimiento());
+        response.setEquipamiento(ejercicio.getEquipamiento());
         response.setSeriesPlanificadas(ejercicio.getSeriesBase());
         response.setRepeticionesPlanificadas(ejercicio.getRepeticionesBase());
         response.setPesoPlanificado(ejercicio.getPesoBase());
@@ -237,6 +281,18 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
                 .map(this::toResponse)
                 .toList());
         return response;
+    }
+
+    private String obtenerCatalogoEjercicioId(RegistroEjercicioVO ejercicio) {
+        if (ejercicio.getEjercicioCatalogo() != null) {
+            return toTexto(ejercicio.getEjercicioCatalogo().getId());
+        }
+
+        if (ejercicio.getPlantillaEjercicio() != null && ejercicio.getPlantillaEjercicio().getEjercicioCatalogo() != null) {
+            return toTexto(ejercicio.getPlantillaEjercicio().getEjercicioCatalogo().getId());
+        }
+
+        return null;
     }
 
     private RegistroSerieResponseDto toResponse(RegistroSerieVO serie) {

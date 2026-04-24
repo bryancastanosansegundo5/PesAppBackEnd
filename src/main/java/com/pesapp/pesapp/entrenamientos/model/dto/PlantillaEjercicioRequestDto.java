@@ -21,10 +21,23 @@ import lombok.Setter;
 public class PlantillaEjercicioRequestDto {
 
     private String idEjercicio;
+    private String catalogoEjercicioId;
 
     @NotBlank(message = "El nombre del ejercicio es obligatorio")
     @Size(max = 150, message = "El nombre del ejercicio no puede superar 150 caracteres")
     private String nombre;
+
+    @Size(max = 1000, message = "La descripcion no puede superar 1000 caracteres")
+    private String descripcion;
+
+    @Size(max = 100, message = "El grupo muscular no puede superar 100 caracteres")
+    private String grupoMuscular;
+
+    @Size(max = 100, message = "El patron de movimiento no puede superar 100 caracteres")
+    private String patronMovimiento;
+
+    @Size(max = 120, message = "El equipamiento no puede superar 120 caracteres")
+    private String equipamiento;
 
     @NotNull(message = "Las series base son obligatorias")
     @Min(value = 0, message = "Las series base no pueden ser negativas")

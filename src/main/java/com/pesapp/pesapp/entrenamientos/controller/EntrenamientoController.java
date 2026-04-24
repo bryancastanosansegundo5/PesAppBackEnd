@@ -1,6 +1,5 @@
 package com.pesapp.pesapp.entrenamientos.controller;
 
-import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEjercicioResponseDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoResponseDto;
 import com.pesapp.pesapp.entrenamientos.service.EntrenamientoService;
@@ -36,13 +35,5 @@ public class EntrenamientoController {
     @GetMapping("/entrenamientos/{id}")
     public ResponseEntity<RegistroEntrenamientoResponseDto> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(entrenamientoService.obtenerPorId(id));
-    }
-
-    @GetMapping("/ejercicios/{plantillaEjercicioId}/ultimo-registro")
-    public ResponseEntity<RegistroEjercicioResponseDto> obtenerUltimoRegistroEjercicio(
-            @PathVariable Long plantillaEjercicioId) {
-        return entrenamientoService.obtenerUltimoRegistroEjercicio(plantillaEjercicioId)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }
