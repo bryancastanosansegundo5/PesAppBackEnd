@@ -1,0 +1,12 @@
+package com.pesapp.pesapp.entrenamientos.repository;
+
+import com.pesapp.pesapp.entrenamientos.model.vo.PlantillaEjercicioVO;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface PlantillaEjercicioRepository extends JpaRepository<PlantillaEjercicioVO, Long> {
+
+    Optional<PlantillaEjercicioVO> findByIdAndPlantillaSesion_Usuario_Id(Long id, Long usuarioId);
+
+    boolean existsByIdAndPlantillaSesion_Usuario_Id(Long id, Long usuarioId);
+}
