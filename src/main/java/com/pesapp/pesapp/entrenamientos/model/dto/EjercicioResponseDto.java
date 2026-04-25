@@ -1,6 +1,7 @@
 package com.pesapp.pesapp.entrenamientos.model.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,6 +10,8 @@ import lombok.Setter;
 public class EjercicioResponseDto {
 
     private String id;
+    private String idEjercicio;
+    private String clientId;
     private String nombre;
     private String descripcion;
     private String grupoMuscular;
@@ -19,4 +22,7 @@ public class EjercicioResponseDto {
     private BigDecimal pesoPlanificado;
     private String alturaBanco;
     private String agarre;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private Long version;
 }

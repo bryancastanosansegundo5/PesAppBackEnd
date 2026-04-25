@@ -10,6 +10,7 @@ import com.pesapp.pesapp.entrenamientos.service.EjercicioService;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,16 +45,25 @@ public class EjercicioServiceImpl implements EjercicioService {
     @Transactional
     public EjercicioResponseDto crear(EjercicioRequestDto request) {
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
-        EjercicioVO ejercicio = new EjercicioVO();
-        ejercicio.setUsuario(usuario);
+        EjercicioVO ejercicio = buscarParaUpsert(request, usuario);
+        if (ejercicio.getId() == null) {
+            ejercicio.setUsuario(usuario);
+            ejercicio.setClientId(normalizarNullable(request.getClientId()));
+        }
+
+        validarVersion(request.getVersion(), ejercicio);
         copiarCampos(request, ejercicio);
-        return toResponse(ejercicioRepository.save(ejercicio));
+        return toResponse(ejercicioRepository.saveAndFlush(ejercicio));
     }
 
     @Override
     @Transactional
     public EjercicioResponseDto actualizar(Long id, EjercicioRequestDto request) {
         EjercicioVO ejercicio = buscarEjercicio(id);
+        validarVersion(request.getVersion(), ejercicio);
+        if (ejercicio.getClientId() == null) {
+            ejercicio.setClientId(normalizarNullable(request.getClientId()));
+        }
         copiarCampos(request, ejercicio);
         return toResponse(ejercicio);
     }
@@ -87,9 +97,39 @@ public class EjercicioServiceImpl implements EjercicioService {
         ejercicio.setAgarre(normalizarNullable(request.getAgarre()));
     }
 
+    private EjercicioVO buscarParaUpsert(EjercicioRequestDto request, UsuarioVO usuario) {
+        Long id = parseId(request.getId());
+        if (id != null) {
+            EjercicioVO ejercicio = ejercicioRepository.findByIdAndUsuario_Id(id, usuario.getId()).orElse(null);
+            if (ejercicio != null) {
+                return ejercicio;
+            }
+        }
+
+        String clientId = normalizarNullable(request.getClientId());
+        if (clientId != null) {
+            EjercicioVO ejercicio = ejercicioRepository
+                    .findFirstByClientIdAndUsuario_IdOrderByIdDesc(clientId, usuario.getId())
+                    .orElse(null);
+            if (ejercicio != null) {
+                return ejercicio;
+            }
+        }
+
+        return new EjercicioVO();
+    }
+
+    private void validarVersion(Long versionEsperada, EjercicioVO ejercicio) {
+        if (versionEsperada != null && ejercicio.getId() != null && !versionEsperada.equals(ejercicio.getVersion())) {
+            throw new OptimisticLockException("La version enviada no coincide con la version actual del recurso");
+        }
+    }
+
     private EjercicioResponseDto toResponse(EjercicioVO ejercicio) {
         EjercicioResponseDto response = new EjercicioResponseDto();
         response.setId(String.valueOf(ejercicio.getId()));
+        response.setIdEjercicio(String.valueOf(ejercicio.getId()));
+        response.setClientId(ejercicio.getClientId());
         response.setNombre(ejercicio.getNombre());
         response.setDescripcion(ejercicio.getDescripcion());
         response.setGrupoMuscular(ejercicio.getGrupoMuscular());
@@ -100,7 +140,22 @@ public class EjercicioServiceImpl implements EjercicioService {
         response.setPesoPlanificado(ejercicio.getPesoPlanificado());
         response.setAlturaBanco(ejercicio.getAlturaBanco());
         response.setAgarre(ejercicio.getAgarre());
+        response.setCreatedAt(ejercicio.getCreatedAt());
+        response.setUpdatedAt(ejercicio.getUpdatedAt());
+        response.setVersion(ejercicio.getVersion());
         return response;
+    }
+
+    private Long parseId(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 
     private String normalizar(String valor) {

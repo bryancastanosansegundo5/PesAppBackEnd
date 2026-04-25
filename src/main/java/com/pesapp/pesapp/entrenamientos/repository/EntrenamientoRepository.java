@@ -11,6 +11,8 @@ public interface EntrenamientoRepository extends JpaRepository<RegistroEntrenami
 
     Optional<RegistroEntrenamientoVO> findByIdAndUsuario_Id(Long id, Long usuarioId);
 
+    Optional<RegistroEntrenamientoVO> findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(String idFrontend, Long usuarioId);
+
     Optional<RegistroEntrenamientoVO> findFirstByPlantillaSesion_IdAndUsuario_IdOrderByFechaFinalizacionDescFechaInicioDescIdDesc(
             Long plantillaSesionId,
             Long usuarioId);

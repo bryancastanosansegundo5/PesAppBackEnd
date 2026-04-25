@@ -88,7 +88,8 @@ class UsuarioControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.mensajes[0]").value("Ya existe un usuario registrado con ese nombre de usuario"));
+                .andExpect(jsonPath("$.statusCode").value(409))
+                .andExpect(jsonPath("$.mensaje").value("Ya existe un usuario registrado con ese nombre de usuario"));
     }
 
     @Test

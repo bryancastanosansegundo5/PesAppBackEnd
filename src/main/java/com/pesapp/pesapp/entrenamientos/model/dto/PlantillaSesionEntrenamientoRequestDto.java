@@ -18,6 +18,7 @@ public class PlantillaSesionEntrenamientoRequestDto {
 
     private String id;
     private String idSesion;
+    private String clientId;
 
     @NotBlank(message = "El nombre de la sesion es obligatorio")
     @Size(max = 150, message = "El nombre de la sesion no puede superar 150 caracteres")
@@ -25,6 +26,8 @@ public class PlantillaSesionEntrenamientoRequestDto {
 
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
+
+    private Long version;
 
     @Valid
     @NotEmpty(message = "La sesion debe tener al menos un ejercicio")

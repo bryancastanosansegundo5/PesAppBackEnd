@@ -1,6 +1,7 @@
 package com.pesapp.pesapp.entrenamientos.model.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -11,6 +12,7 @@ import lombok.Setter;
 public class PlantillaEjercicioResponseDto {
 
     private String idEjercicio;
+    private String clientId;
     private String catalogoEjercicioId;
     private String nombre;
     private String descripcion;
@@ -24,5 +26,8 @@ public class PlantillaEjercicioResponseDto {
     private String agarre;
     private boolean completado;
     private boolean omitido;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private Long version;
     private List<RegistroSerieResponseDto> seriesRealizadas = new ArrayList<>();
 }

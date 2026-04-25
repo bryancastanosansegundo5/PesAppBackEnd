@@ -19,6 +19,8 @@ import lombok.Setter;
 public class RegistroEjercicioRequestDto {
 
     private String idEjercicio;
+    private String clientId;
+    private String plantillaEjercicioId;
     private String catalogoEjercicioId;
 
     @NotBlank(message = "El nombre del ejercicio es obligatorio")
@@ -59,4 +61,6 @@ public class RegistroEjercicioRequestDto {
 
     @Valid
     private List<RegistroSerieRequestDto> seriesRealizadas = new ArrayList<>();
+
+    private Long version;
 }

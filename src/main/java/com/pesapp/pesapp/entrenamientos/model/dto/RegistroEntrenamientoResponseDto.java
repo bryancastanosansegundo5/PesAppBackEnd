@@ -12,8 +12,12 @@ public class RegistroEntrenamientoResponseDto {
 
     private String id;
     private String idSesion;
+    private String clientId;
     private String nombreSesion;
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private Long version;
     private List<RegistroEjercicioResponseDto> ejercicios = new ArrayList<>();
 }

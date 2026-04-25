@@ -15,6 +15,7 @@ import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -62,17 +63,22 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
             sesion.setUsuario(usuario);
         }
 
-        sesion.setIdFrontend(normalizarNullable(primerValorConTexto(request.getId(), request.getIdSesion())));
+        validarVersion(request.getVersion(), sesion);
+        sesion.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getId(), request.getIdSesion())));
         sesion.setNombre(normalizar(request.getNombreSesion()));
         actualizarEjercicios(sesion, request.getEjercicios());
 
-        return toResponse(sesionEntrenamientoRepository.save(sesion));
+        return toResponse(sesionEntrenamientoRepository.saveAndFlush(sesion));
     }
 
     @Override
     @Transactional
     public PlantillaSesionEntrenamientoResponseDto actualizar(Long id, PlantillaSesionEntrenamientoRequestDto request) {
         PlantillaSesionEntrenamientoVO sesion = buscarSesion(id);
+        validarVersion(request.getVersion(), sesion);
+        if (sesion.getIdFrontend() == null) {
+            sesion.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getId(), request.getIdSesion())));
+        }
         sesion.setNombre(normalizar(request.getNombreSesion()));
         actualizarEjercicios(sesion, request.getEjercicios());
 
@@ -126,7 +132,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
 
     private PlantillaEjercicioVO toEntity(PlantillaEjercicioRequestDto request) {
         PlantillaEjercicioVO ejercicio = new PlantillaEjercicioVO();
-        ejercicio.setIdFrontend(normalizarNullable(request.getIdEjercicio()));
+        ejercicio.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getIdEjercicio())));
         copiarCampos(request, ejercicio);
         return ejercicio;
     }
@@ -134,7 +140,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
     private PlantillaSesionEntrenamientoVO buscarSesionParaUpsert(
             PlantillaSesionEntrenamientoRequestDto request,
             UsuarioVO usuario) {
-        String idFrontend = normalizarNullable(primerValorConTexto(request.getId(), request.getIdSesion()));
+        String idFrontend = normalizarNullable(primerValorConTexto(request.getClientId(), request.getId(), request.getIdSesion()));
         Long idNumerico = parseId(idFrontend);
 
         if (idNumerico != null) {
@@ -162,7 +168,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
             PlantillaEjercicioRequestDto request,
             Map<Long, PlantillaEjercicioVO> ejerciciosExistentes,
             Map<String, PlantillaEjercicioVO> ejerciciosExistentesPorFrontend) {
-        String idEjercicio = normalizarNullable(request.getIdEjercicio());
+        String idEjercicio = normalizarNullable(primerValorConTexto(request.getClientId(), request.getIdEjercicio()));
         Long ejercicioId = parseId(idEjercicio);
 
         if (ejercicioId != null) {
@@ -200,7 +206,9 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
 
     private void copiarCampos(PlantillaEjercicioRequestDto request, PlantillaEjercicioVO ejercicio) {
         EjercicioVO ejercicioCatalogo = buscarEjercicioCatalogoOpcional(request.getCatalogoEjercicioId());
+        validarVersion(request.getVersion(), ejercicio);
         ejercicio.setEjercicioCatalogo(ejercicioCatalogo);
+        ejercicio.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getIdEjercicio())));
         ejercicio.setNombre(normalizar(request.getNombre()));
         ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
         ejercicio.setGrupoMuscular(normalizarNullable(request.getGrupoMuscular()));
@@ -217,7 +225,11 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         PlantillaSesionEntrenamientoResponseDto response = new PlantillaSesionEntrenamientoResponseDto();
         response.setId(textoConPreferencia(sesion.getIdFrontend(), sesion.getId()));
         response.setIdSesion(textoConPreferencia(sesion.getIdFrontend(), sesion.getId()));
+        response.setClientId(sesion.getIdFrontend());
         response.setNombreSesion(sesion.getNombre());
+        response.setCreatedAt(sesion.getCreatedAt());
+        response.setUpdatedAt(sesion.getUpdatedAt());
+        response.setVersion(sesion.getVersion());
         response.setEjercicios(sesion.getEjercicios().stream().map(this::toResponse).toList());
         return response;
     }
@@ -225,6 +237,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
     private PlantillaEjercicioResponseDto toResponse(PlantillaEjercicioVO ejercicio) {
         PlantillaEjercicioResponseDto response = new PlantillaEjercicioResponseDto();
         response.setIdEjercicio(textoConPreferencia(ejercicio.getIdFrontend(), ejercicio.getId()));
+        response.setClientId(ejercicio.getIdFrontend());
         response.setCatalogoEjercicioId(
                 ejercicio.getEjercicioCatalogo() == null ? null : toTexto(ejercicio.getEjercicioCatalogo().getId()));
         response.setNombre(ejercicio.getNombre());
@@ -237,7 +250,26 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         response.setPesoPlanificado(ejercicio.getPesoBase());
         response.setAlturaBanco(ejercicio.getAlturaBanco());
         response.setAgarre(ejercicio.getAgarre());
+        response.setCreatedAt(ejercicio.getCreatedAt());
+        response.setUpdatedAt(ejercicio.getUpdatedAt());
+        response.setVersion(ejercicio.getVersion());
         return response;
+    }
+
+    private void validarVersion(Long versionEsperada, com.pesapp.pesapp.entrenamientos.model.vo.AuditoriaVO entidad) {
+        if (versionEsperada != null
+                && entidad instanceof com.pesapp.pesapp.entrenamientos.model.vo.PlantillaSesionEntrenamientoVO sesion
+                && sesion.getId() != null
+                && !versionEsperada.equals(sesion.getVersion())) {
+            throw new OptimisticLockException("La version enviada no coincide con la version actual del recurso");
+        }
+
+        if (versionEsperada != null
+                && entidad instanceof com.pesapp.pesapp.entrenamientos.model.vo.PlantillaEjercicioVO ejercicio
+                && ejercicio.getId() != null
+                && !versionEsperada.equals(ejercicio.getVersion())) {
+            throw new OptimisticLockException("La version enviada no coincide con la version actual del recurso");
+        }
     }
 
     private EjercicioVO buscarEjercicioCatalogoOpcional(String ejercicioId) {
@@ -289,12 +321,11 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         return (idFrontend != null && !idFrontend.isBlank()) ? idFrontend : toTexto(idInterno);
     }
 
-    private String primerValorConTexto(String primerValor, String segundoValor) {
-        if (primerValor != null && !primerValor.isBlank()) {
-            return primerValor.trim();
-        }
-        if (segundoValor != null && !segundoValor.isBlank()) {
-            return segundoValor.trim();
+    private String primerValorConTexto(String... valores) {
+        for (String valor : valores) {
+            if (valor != null && !valor.isBlank()) {
+                return valor.trim();
+            }
         }
         return null;
     }

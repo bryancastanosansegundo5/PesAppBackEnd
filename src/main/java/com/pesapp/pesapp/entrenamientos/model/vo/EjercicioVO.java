@@ -26,6 +26,9 @@ public class EjercicioVO extends AuditoriaVO {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "client_id", length = 120)
+    private String clientId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)
     private UsuarioVO usuario;

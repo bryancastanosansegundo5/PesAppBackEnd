@@ -1,16 +1,17 @@
 package com.pesapp.pesapp.entrenamientos.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
-import java.util.List;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
-@AllArgsConstructor
+@RequiredArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorResponseDto {
 
-    private LocalDateTime timestamp;
-    private int status;
-    private String error;
-    private List<String> mensajes;
+    private final LocalDateTime timestamp;
+    private final int statusCode;
+    private final String error;
+    private final String mensaje;
 }

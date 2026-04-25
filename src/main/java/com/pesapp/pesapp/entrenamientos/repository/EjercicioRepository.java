@@ -11,5 +11,7 @@ public interface EjercicioRepository extends JpaRepository<EjercicioVO, Long> {
 
     Optional<EjercicioVO> findByIdAndUsuario_Id(Long id, Long usuarioId);
 
+    Optional<EjercicioVO> findFirstByClientIdAndUsuario_IdOrderByIdDesc(String clientId, Long usuarioId);
+
     boolean existsByIdAndUsuario_Id(Long id, Long usuarioId);
 }

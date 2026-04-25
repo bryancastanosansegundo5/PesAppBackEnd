@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,7 +30,7 @@ public class SecurityExceptionHandlers implements AuthenticationEntryPoint, Acce
                 response,
                 HttpStatus.UNAUTHORIZED,
                 "No autorizado",
-                List.of("Debes iniciar sesion para acceder a este recurso"));
+                "Debes iniciar sesion para acceder a este recurso");
     }
 
     @Override
@@ -43,18 +42,18 @@ public class SecurityExceptionHandlers implements AuthenticationEntryPoint, Acce
                 response,
                 HttpStatus.FORBIDDEN,
                 "Acceso denegado",
-                List.of("No tienes permisos para acceder a este recurso"));
+                "No tienes permisos para acceder a este recurso");
     }
 
     private void escribirRespuesta(
             HttpServletResponse response,
             HttpStatus status,
             String error,
-            List<String> mensajes) throws IOException {
+            String mensaje) throws IOException {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(
                 response.getWriter(),
-                new ErrorResponseDto(LocalDateTime.now(), status.value(), error, mensajes));
+                new ErrorResponseDto(LocalDateTime.now(), status.value(), error, mensaje));
     }
 }

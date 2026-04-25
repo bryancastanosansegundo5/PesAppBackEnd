@@ -15,6 +15,11 @@ import lombok.Setter;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class EjercicioRequestDto {
 
+    private String id;
+
+    @Size(max = 120, message = "El clientId no puede superar 120 caracteres")
+    private String clientId;
+
     @NotBlank(message = "El nombre del ejercicio es obligatorio")
     @Size(max = 150, message = "El nombre del ejercicio no puede superar 150 caracteres")
     private String nombre;
@@ -47,4 +52,6 @@ public class EjercicioRequestDto {
 
     @Size(max = 100, message = "El agarre no puede superar 100 caracteres")
     private String agarre;
+
+    private Long version;
 }
