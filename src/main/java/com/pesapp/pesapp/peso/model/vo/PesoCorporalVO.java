@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,7 +26,6 @@ import lombok.Setter;
 @Table(
         name = "pesos_corporales",
         uniqueConstraints = {
-            @UniqueConstraint(name = "uq_pesos_corporales_usuario_fecha", columnNames = {"usuario_id", "fecha_registro"}),
             @UniqueConstraint(name = "uq_pesos_corporales_usuario_client_id", columnNames = {"usuario_id", "client_id"})
         })
 public class PesoCorporalVO extends AuditoriaVO {
@@ -46,4 +46,13 @@ public class PesoCorporalVO extends AuditoriaVO {
 
     @Column(name = "fecha_registro", nullable = false)
     private LocalDate fechaRegistro;
+
+    @Column(name = "hora_registro", nullable = false, length = 5)
+    private String horaRegistro;
+
+    @Column(name = "hora_manual", nullable = false)
+    private boolean horaManual;
+
+    @Column(name = "fecha", nullable = false)
+    private LocalDateTime fecha;
 }

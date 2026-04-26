@@ -11,6 +11,7 @@ import com.pesapp.pesapp.entrenamientos.repository.EjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.PlantillaEjercicioRepository;
 import com.pesapp.pesapp.entrenamientos.repository.SesionEntrenamientoRepository;
 import com.pesapp.pesapp.entrenamientos.service.SesionEntrenamientoService;
+import com.pesapp.pesapp.usuarios.exception.ConflictException;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -89,7 +91,12 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
     @Transactional
     public void eliminar(Long id) {
         PlantillaSesionEntrenamientoVO sesion = buscarSesion(id);
-        sesionEntrenamientoRepository.delete(sesion);
+        try {
+            sesionEntrenamientoRepository.delete(sesion);
+            sesionEntrenamientoRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new ConflictException("No se puede eliminar la sesion porque tiene entrenamientos asociados");
+        }
     }
 
     private PlantillaSesionEntrenamientoVO buscarSesion(Long id) {
@@ -223,8 +230,8 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
 
     private PlantillaSesionEntrenamientoResponseDto toResponse(PlantillaSesionEntrenamientoVO sesion) {
         PlantillaSesionEntrenamientoResponseDto response = new PlantillaSesionEntrenamientoResponseDto();
-        response.setId(textoConPreferencia(sesion.getIdFrontend(), sesion.getId()));
-        response.setIdSesion(textoConPreferencia(sesion.getIdFrontend(), sesion.getId()));
+        response.setId(toTexto(sesion.getId()));
+        response.setIdSesion(toTexto(sesion.getId()));
         response.setClientId(sesion.getIdFrontend());
         response.setNombreSesion(sesion.getNombre());
         response.setCreatedAt(sesion.getCreatedAt());

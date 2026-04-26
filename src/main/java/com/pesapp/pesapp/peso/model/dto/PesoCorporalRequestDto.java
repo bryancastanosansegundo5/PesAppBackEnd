@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,6 +28,12 @@ public class PesoCorporalRequestDto {
     private BigDecimal peso;
 
     private LocalDate fechaRegistro;
+
+    @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "La horaRegistro debe tener formato HH:mm")
+    private String horaRegistro;
+
+    @NotNull(message = "El indicador horaManual es obligatorio")
+    private Boolean horaManual;
 
     private Long version;
 }

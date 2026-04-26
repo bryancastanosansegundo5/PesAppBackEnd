@@ -3,6 +3,7 @@ package com.pesapp.pesapp.peso.controller;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,11 +11,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pesapp.pesapp.peso.model.dto.PesoCorporalResponseDto;
 import com.pesapp.pesapp.peso.service.PesoCorporalService;
+import jakarta.persistence.OptimisticLockException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -44,7 +47,7 @@ class PesoCorporalControllerTest {
     @Test
     @WithMockUser(username = "bryan", roles = "USUARIO")
     void debeDevolverHistoricoNormalizado() throws Exception {
-        when(pesoCorporalService.obtenerHistorico()).thenReturn(List.of(crearRespuesta()));
+        when(pesoCorporalService.obtenerHistorico()).thenReturn(List.of(crearRespuesta("08:00", false)));
 
         mockMvc.perform(get("/api/peso"))
                 .andExpect(status().isOk())
@@ -52,6 +55,9 @@ class PesoCorporalControllerTest {
                 .andExpect(jsonPath("$[0].userId").value(1))
                 .andExpect(jsonPath("$[0].peso").value(82.4))
                 .andExpect(jsonPath("$[0].fechaRegistro").value("2026-04-25"))
+                .andExpect(jsonPath("$[0].horaRegistro").value("08:00"))
+                .andExpect(jsonPath("$[0].horaManual").value(false))
+                .andExpect(jsonPath("$[0].fecha").value("2026-04-25T08:00:00"))
                 .andExpect(jsonPath("$[0].clientId").value("peso-2026-04-25"))
                 .andExpect(jsonPath("$[0].version").value(3));
     }
@@ -59,27 +65,95 @@ class PesoCorporalControllerTest {
     @Test
     @WithMockUser(username = "bryan", roles = "USUARIO")
     void debeGuardarPesoDeHoy() throws Exception {
-        when(pesoCorporalService.guardarPesoHoy(org.mockito.ArgumentMatchers.any())).thenReturn(crearRespuesta());
+        when(pesoCorporalService.guardarPesoHoy(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(crearRespuesta("12:15", false));
 
         mockMvc.perform(put("/api/peso/hoy")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(java.util.Map.of(
                                 "peso", new BigDecimal("82.40"),
+                                "horaRegistro", "12:15",
+                                "horaManual", false,
                                 "clientId", "peso-2026-04-25",
                                 "version", 2))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("12"))
                 .andExpect(jsonPath("$.peso").value(82.4))
+                .andExpect(jsonPath("$.horaRegistro").value("12:15"))
+                .andExpect(jsonPath("$.horaManual").value(false))
+                .andExpect(jsonPath("$.fecha").value("2026-04-25T12:15:00"))
                 .andExpect(jsonPath("$.updatedAt").value("2026-04-25T12:15:00"));
     }
 
-    private PesoCorporalResponseDto crearRespuesta() {
+    @Test
+    @WithMockUser(username = "bryan", roles = "USUARIO")
+    void debeGuardarPesoPorFechaConHora() throws Exception {
+        when(pesoCorporalService.guardar(org.mockito.ArgumentMatchers.any())).thenReturn(crearRespuesta("08:00", true));
+
+        mockMvc.perform(post("/api/peso")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "peso", new BigDecimal("82.40"),
+                                "fechaRegistro", "2026-04-25",
+                                "horaRegistro", "08:00",
+                                "horaManual", true,
+                                "clientId", "peso-2026-04-25",
+                                "version", 2))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.horaRegistro").value("08:00"))
+                .andExpect(jsonPath("$.horaManual").value(true))
+                .andExpect(jsonPath("$.fecha").value("2026-04-25T08:00:00"));
+    }
+
+    @Test
+    @WithMockUser(username = "bryan", roles = "USUARIO")
+    void debeDistinguirConflictoDeVersion() throws Exception {
+        when(pesoCorporalService.guardarPesoHoy(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new OptimisticLockException("La version enviada no coincide con la version actual del recurso"));
+
+        mockMvc.perform(put("/api/peso/hoy")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "peso", new BigDecimal("82.40"),
+                                "horaRegistro", "12:15",
+                                "horaManual", false,
+                                "clientId", "peso-2026-04-25",
+                                "version", 2))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Conflicto de version"))
+                .andExpect(jsonPath("$.mensaje").value("La version enviada no coincide con la version actual del recurso"));
+    }
+
+    @Test
+    @WithMockUser(username = "bryan", roles = "USUARIO")
+    void debeDistinguirConflictoDeDatos() throws Exception {
+        when(pesoCorporalService.guardarPesoHoy(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new DataIntegrityViolationException("constraint"));
+
+        mockMvc.perform(put("/api/peso/hoy")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "peso", new BigDecimal("82.40"),
+                                "horaRegistro", "12:15",
+                                "horaManual", false,
+                                "clientId", "peso-2026-04-25",
+                                "version", 2))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Conflicto de datos"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("No se ha podido guardar el recurso porque los datos entran en conflicto con el estado actual"));
+    }
+
+    private PesoCorporalResponseDto crearRespuesta(String horaRegistro, boolean horaManual) {
         PesoCorporalResponseDto dto = new PesoCorporalResponseDto();
         dto.setId("12");
         dto.setUserId(1L);
         dto.setClientId("peso-2026-04-25");
         dto.setPeso(new BigDecimal("82.40"));
         dto.setFechaRegistro(LocalDate.of(2026, 4, 25));
+        dto.setHoraRegistro(horaRegistro);
+        dto.setHoraManual(horaManual);
+        dto.setFecha(LocalDateTime.of(2026, 4, 25, Integer.parseInt(horaRegistro.substring(0, 2)), Integer.parseInt(horaRegistro.substring(3, 5))));
         dto.setCreatedAt(LocalDateTime.of(2026, 4, 25, 8, 0));
         dto.setUpdatedAt(LocalDateTime.of(2026, 4, 25, 12, 15));
         dto.setVersion(3L);

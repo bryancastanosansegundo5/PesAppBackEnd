@@ -4,7 +4,7 @@
 
 ### `GET /api/peso`
 
-Devuelve el historico del usuario autenticado ordenado por `fechaRegistro` descendente.
+Devuelve el historico completo del usuario autenticado ordenado por `fecha` descendente.
 
 Respuesta ejemplo:
 
@@ -16,6 +16,9 @@ Respuesta ejemplo:
     "clientId": "peso-2026-04-25",
     "peso": 82.4,
     "fechaRegistro": "2026-04-25",
+    "horaRegistro": "08:00",
+    "horaManual": false,
+    "fecha": "2026-04-25T08:00:00",
     "createdAt": "2026-04-25T08:00:00",
     "updatedAt": "2026-04-25T12:15:00",
     "version": 3
@@ -25,13 +28,15 @@ Respuesta ejemplo:
 
 ### `PUT /api/peso/hoy`
 
-Crea o actualiza el peso del dia actual para el usuario autenticado. Si el usuario ya tiene peso en el dia actual, el backend actualiza el registro existente.
+Crea o actualiza un peso del dia actual para el usuario autenticado. El backend solo actualiza un registro existente cuando coincide el mismo `clientId`; varios pesos en el mismo dia son validos si cada medicion usa un `clientId` distinto.
 
 Request ejemplo:
 
 ```json
 {
   "peso": 82.4,
+  "horaRegistro": "12:15",
+  "horaManual": false,
   "clientId": "peso-2026-04-25",
   "version": 2
 }
@@ -46,6 +51,9 @@ Respuesta ejemplo:
   "clientId": "peso-2026-04-25",
   "peso": 82.4,
   "fechaRegistro": "2026-04-25",
+  "horaRegistro": "12:15",
+  "horaManual": false,
+  "fecha": "2026-04-25T12:15:00",
   "createdAt": "2026-04-25T08:00:00",
   "updatedAt": "2026-04-25T12:15:00",
   "version": 3
@@ -54,7 +62,7 @@ Respuesta ejemplo:
 
 ### `POST /api/peso`
 
-Endpoint adicional para resincronizacion o carga diferida. Permite guardar un registro para una fecha concreta con payload idempotente por `clientId` o por combinacion `usuario + fechaRegistro`.
+Endpoint adicional para resincronizacion o carga diferida. Permite guardar un registro para una fecha concreta con payload idempotente por `clientId`. Varios pesos en la misma `fechaRegistro` son validos si usan `clientId` distintos.
 
 Request ejemplo:
 
@@ -62,7 +70,27 @@ Request ejemplo:
 {
   "peso": 81.9,
   "fechaRegistro": "2026-04-24",
+  "horaRegistro": "21:40",
+  "horaManual": true,
   "clientId": "peso-2026-04-24",
+  "version": 1
+}
+```
+
+Respuesta ejemplo:
+
+```json
+{
+  "id": "11",
+  "userId": 1,
+  "clientId": "peso-2026-04-24",
+  "peso": 81.9,
+  "fechaRegistro": "2026-04-24",
+  "horaRegistro": "21:40",
+  "horaManual": true,
+  "fecha": "2026-04-24T21:40:00",
+  "createdAt": "2026-04-25T09:10:00",
+  "updatedAt": "2026-04-25T09:10:00",
   "version": 1
 }
 ```
@@ -84,4 +112,6 @@ Todos los errores de negocio y 5xx responden en JSON consistente:
 
 - `GET /api/auth/me` sigue devolviendo `id`, `nombre`, `email`, `username`, `rol`, `activo`, `createdAt`, `updatedAt`.
 - Ejercicios, sesiones y entrenamientos conservan sus campos actuales y ahora exponen ademas `clientId`, `createdAt`, `updatedAt` y `version`.
+- Los registros antiguos sin hora se migran con `horaManual = false`, `horaRegistro` derivada de `createdAt` y `fecha` reconstruida desde `fechaRegistro + horaRegistro`.
+- Para conservar varias mediciones del mismo dia, cada alta debe enviarse con un `clientId` unico por registro.
 - Las respuestas mantienen fechas en formato ISO para cacheo local y futuras estrategias de sincronizacion.

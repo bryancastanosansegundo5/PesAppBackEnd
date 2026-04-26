@@ -8,9 +8,12 @@ import com.pesapp.pesapp.peso.repository.PesoCorporalRepository;
 import com.pesapp.pesapp.peso.service.PesoCorporalService;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PesoCorporalServiceImpl implements PesoCorporalService {
 
+    private static final DateTimeFormatter HORA_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+
     private final PesoCorporalRepository pesoCorporalRepository;
     private final UsuarioService usuarioService;
 
@@ -27,7 +32,7 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
     @Transactional(readOnly = true)
     public List<PesoCorporalResponseDto> obtenerHistorico() {
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
-        return pesoCorporalRepository.findAllByUsuario_IdOrderByFechaRegistroDescCreatedAtDesc(usuario.getId())
+        return pesoCorporalRepository.findAllByUsuario_IdOrderByFechaDescCreatedAtDesc(usuario.getId())
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -36,12 +41,20 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
     @Override
     @Transactional
     public PesoCorporalResponseDto guardarPesoHoy(PesoHoyRequestDto request) {
-        PesoCorporalRequestDto payload = new PesoCorporalRequestDto();
-        payload.setClientId(request.getClientId());
-        payload.setPeso(request.getPeso());
-        payload.setFechaRegistro(LocalDate.now());
-        payload.setVersion(request.getVersion());
-        return guardar(payload);
+        UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
+        LocalDate hoy = LocalDate.now();
+        String clientId = normalizarNullable(request.getClientId());
+
+        PesoCorporalVO peso = buscarParaUpsert(usuario.getId(), clientId);
+        return guardarInterno(
+                usuario,
+                peso,
+                peso.getId() == null ? hoy : peso.getFechaRegistro(),
+                request.getPeso(),
+                request.getHoraRegistro(),
+                request.getHoraManual(),
+                clientId,
+                request.getVersion());
     }
 
     @Override
@@ -51,23 +64,19 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
         LocalDate fechaRegistro = request.getFechaRegistro() == null ? LocalDate.now() : request.getFechaRegistro();
         String clientId = normalizarNullable(request.getClientId());
 
-        PesoCorporalVO peso = buscarParaUpsert(usuario.getId(), fechaRegistro, clientId);
-        if (peso.getId() == null) {
-            peso.setUsuario(usuario);
-            peso.setFechaRegistro(fechaRegistro);
-            peso.setClientId(clientId);
-        }
-
-        validarVersion(request.getVersion(), peso);
-        peso.setPeso(request.getPeso().stripTrailingZeros());
-        if (peso.getClientId() == null) {
-            peso.setClientId(clientId);
-        }
-
-        return toResponse(pesoCorporalRepository.saveAndFlush(peso));
+        PesoCorporalVO peso = buscarParaUpsert(usuario.getId(), clientId);
+        return guardarInterno(
+                usuario,
+                peso,
+                fechaRegistro,
+                request.getPeso(),
+                request.getHoraRegistro(),
+                request.getHoraManual(),
+                clientId,
+                request.getVersion());
     }
 
-    private PesoCorporalVO buscarParaUpsert(Long usuarioId, LocalDate fechaRegistro, String clientId) {
+    private PesoCorporalVO buscarParaUpsert(Long usuarioId, String clientId) {
         if (clientId != null) {
             PesoCorporalVO peso = pesoCorporalRepository
                     .findFirstByClientIdAndUsuario_IdOrderByIdDesc(clientId, usuarioId)
@@ -77,13 +86,43 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
             }
         }
 
-        return pesoCorporalRepository.findByUsuario_IdAndFechaRegistro(usuarioId, fechaRegistro).orElse(new PesoCorporalVO());
+        return new PesoCorporalVO();
     }
 
     private void validarVersion(Long versionEsperada, PesoCorporalVO peso) {
         if (versionEsperada != null && peso.getId() != null && !versionEsperada.equals(peso.getVersion())) {
             throw new OptimisticLockException("La version enviada no coincide con la version actual del recurso");
         }
+    }
+
+    private PesoCorporalResponseDto guardarInterno(
+            UsuarioVO usuario,
+            PesoCorporalVO peso,
+            LocalDate fechaRegistroObjetivo,
+            java.math.BigDecimal pesoRequest,
+            String horaRegistroRequest,
+            Boolean horaManualRequest,
+            String clientId,
+            Long versionEsperada) {
+        if (peso.getId() == null) {
+            peso.setUsuario(usuario);
+            peso.setFechaRegistro(fechaRegistroObjetivo);
+            peso.setClientId(clientId);
+        }
+
+        LocalDate fechaRegistroFinal = peso.getId() == null ? fechaRegistroObjetivo : peso.getFechaRegistro();
+
+        validarVersion(versionEsperada, peso);
+        peso.setPeso(pesoRequest.stripTrailingZeros());
+        peso.setHoraManual(Boolean.TRUE.equals(horaManualRequest));
+        String horaRegistroFinal = resolverHoraRegistro(horaRegistroRequest, peso.isHoraManual(), fechaRegistroFinal);
+        peso.setHoraRegistro(horaRegistroFinal);
+        peso.setFecha(LocalDateTime.of(fechaRegistroFinal, parseHora(horaRegistroFinal)));
+        if (peso.getClientId() == null) {
+            peso.setClientId(clientId);
+        }
+
+        return toResponse(pesoCorporalRepository.saveAndFlush(peso));
     }
 
     private PesoCorporalResponseDto toResponse(PesoCorporalVO peso) {
@@ -93,10 +132,45 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
         response.setClientId(peso.getClientId());
         response.setPeso(peso.getPeso());
         response.setFechaRegistro(peso.getFechaRegistro());
+        response.setHoraRegistro(peso.getHoraRegistro());
+        response.setHoraManual(peso.isHoraManual());
+        response.setFecha(peso.getFecha());
         response.setCreatedAt(peso.getCreatedAt());
         response.setUpdatedAt(peso.getUpdatedAt());
         response.setVersion(peso.getVersion());
         return response;
+    }
+
+    private String resolverHoraRegistro(String horaRegistroRequest, boolean horaManual, LocalDate fechaRegistro) {
+        if (horaManual) {
+            if (horaRegistroRequest == null || horaRegistroRequest.isBlank()) {
+                throw new IllegalArgumentException("La horaRegistro es obligatoria cuando horaManual es true");
+            }
+
+            return formatHora(horaRegistroRequest);
+        }
+
+        String horaBase = horaRegistroRequest;
+        if (horaBase == null || horaBase.isBlank()) {
+            LocalDateTime now = LocalDateTime.now();
+            horaBase = fechaRegistro.equals(now.toLocalDate())
+                    ? now.toLocalTime().format(HORA_FORMATTER)
+                    : LocalTime.MIDNIGHT.format(HORA_FORMATTER);
+        }
+
+        return formatHora(horaBase);
+    }
+
+    private String formatHora(String horaRegistro) {
+        return parseHora(horaRegistro).format(HORA_FORMATTER);
+    }
+
+    private LocalTime parseHora(String horaRegistro) {
+        try {
+            return LocalTime.parse(horaRegistro, HORA_FORMATTER);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException("La horaRegistro debe tener formato HH:mm");
+        }
     }
 
     private String normalizarNullable(String value) {

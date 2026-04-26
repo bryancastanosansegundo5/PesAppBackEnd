@@ -15,6 +15,9 @@ public class PesoCorporalResponseDto {
     private String clientId;
     private BigDecimal peso;
     private LocalDate fechaRegistro;
+    private String horaRegistro;
+    private Boolean horaManual;
+    private LocalDateTime fecha;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;

@@ -65,12 +65,20 @@ public class EntrenamientoExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED, "No autorizado", "Credenciales no validas");
     }
 
-    @ExceptionHandler({OptimisticLockException.class, DataIntegrityViolationException.class})
-    public ResponseEntity<ErrorResponseDto> handleConflictTecnico(Exception exception) {
+    @ExceptionHandler(OptimisticLockException.class)
+    public ResponseEntity<ErrorResponseDto> handleOptimisticLock(OptimisticLockException exception) {
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "Conflicto",
-                "No se ha podido guardar el recurso porque existe una version mas reciente o datos incompatibles");
+                "Conflicto de version",
+                "La version enviada no coincide con la version actual del recurso");
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponseDto> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "Conflicto de datos",
+                "No se ha podido guardar el recurso porque los datos entran en conflicto con el estado actual");
     }
 
     @ExceptionHandler(Exception.class)
