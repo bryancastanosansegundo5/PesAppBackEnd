@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -66,7 +67,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         entrenamiento.getEjercicios().clear();
         request.getEjercicios().forEach(ejercicioRequest -> entrenamiento.addEjercicio(toEntity(ejercicioRequest)));
 
-        return toResponse(entrenamientoRepository.saveAndFlush(entrenamiento));
+        return toResponse(guardarEntrenamientoIdempotente(entrenamiento, request, usuario.getId()));
     }
 
     @Override
@@ -146,6 +147,35 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
 
         return sesionEntrenamientoRepository.findByIdAndUsuario_Id(plantillaSesionNumerica, usuarioId)
                 .orElseThrow(() -> new EntityNotFoundException("idSesion " + plantillaSesionId + " no existe"));
+    }
+
+    private RegistroEntrenamientoVO guardarEntrenamientoIdempotente(
+            RegistroEntrenamientoVO entrenamiento,
+            RegistroEntrenamientoRequestDto request,
+            Long usuarioId) {
+        try {
+            return entrenamientoRepository.saveAndFlush(entrenamiento);
+        } catch (DataIntegrityViolationException exception) {
+            String clientId = normalizarNullable(request.getClientId());
+            if (clientId != null) {
+                RegistroEntrenamientoVO existente = entrenamientoRepository
+                        .findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(clientId, usuarioId)
+                        .orElse(null);
+                if (existente != null) {
+                    return existente;
+                }
+            }
+
+            if (entrenamiento.getId() != null) {
+                RegistroEntrenamientoVO existente =
+                        entrenamientoRepository.findByIdAndUsuario_Id(entrenamiento.getId(), usuarioId).orElse(null);
+                if (existente != null) {
+                    return existente;
+                }
+            }
+
+            throw exception;
+        }
     }
 
     private PlantillaEjercicioVO buscarPlantillaEjercicioOpcional(String plantillaEjercicioId) {

@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -22,7 +23,13 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "plantillas_sesion_entrenamiento")
+@Table(
+        name = "plantillas_sesion_entrenamiento",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_plantillas_sesion_usuario_id_frontend",
+                    columnNames = {"usuario_id", "id_frontend"})
+        })
 public class PlantillaSesionEntrenamientoVO extends AuditoriaVO {
 
     @Id

@@ -70,7 +70,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         sesion.setNombre(normalizar(request.getNombreSesion()));
         actualizarEjercicios(sesion, request.getEjercicios());
 
-        return toResponse(sesionEntrenamientoRepository.saveAndFlush(sesion));
+        return toResponse(guardarSesionIdempotente(sesion, request, usuario.getId()));
     }
 
     @Override
@@ -84,7 +84,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         sesion.setNombre(normalizar(request.getNombreSesion()));
         actualizarEjercicios(sesion, request.getEjercicios());
 
-        return toResponse(sesion);
+        return toResponse(guardarSesionIdempotente(sesion, request, sesion.getUsuario().getId()));
     }
 
     @Override
@@ -103,6 +103,36 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
         return sesionEntrenamientoRepository.findByIdAndUsuario_Id(id, usuario.getId())
                 .orElseThrow(() -> new EntityNotFoundException("No existe la sesion de entrenamiento con id " + id));
+    }
+
+    private PlantillaSesionEntrenamientoVO guardarSesionIdempotente(
+            PlantillaSesionEntrenamientoVO sesion,
+            PlantillaSesionEntrenamientoRequestDto request,
+            Long usuarioId) {
+        try {
+            return sesionEntrenamientoRepository.saveAndFlush(sesion);
+        } catch (DataIntegrityViolationException exception) {
+            String idFrontend =
+                    normalizarNullable(primerValorConTexto(request.getClientId(), request.getId(), request.getIdSesion()));
+            if (idFrontend != null) {
+                PlantillaSesionEntrenamientoVO existente = sesionEntrenamientoRepository
+                        .findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(idFrontend, usuarioId)
+                        .orElse(null);
+                if (existente != null) {
+                    return existente;
+                }
+            }
+
+            if (sesion.getId() != null) {
+                PlantillaSesionEntrenamientoVO existente =
+                        sesionEntrenamientoRepository.findByIdAndUsuario_Id(sesion.getId(), usuarioId).orElse(null);
+                if (existente != null) {
+                    return existente;
+                }
+            }
+
+            throw exception;
+        }
     }
 
     private void actualizarEjercicios(

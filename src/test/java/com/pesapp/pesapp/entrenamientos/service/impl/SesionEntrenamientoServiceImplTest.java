@@ -2,11 +2,13 @@ package com.pesapp.pesapp.entrenamientos.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.pesapp.pesapp.entrenamientos.model.dto.PlantillaSesionEntrenamientoRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.PlantillaSesionEntrenamientoResponseDto;
 import com.pesapp.pesapp.entrenamientos.model.vo.PlantillaSesionEntrenamientoVO;
 import com.pesapp.pesapp.entrenamientos.repository.EjercicioRepository;
@@ -83,6 +85,26 @@ class SesionEntrenamientoServiceImplTest {
                 .hasMessage("No se puede eliminar la sesion porque tiene entrenamientos asociados");
 
         verify(sesionEntrenamientoRepository).delete(sesion);
+    }
+
+    @Test
+    void debeDevolverSesionExistenteSiLaConstraintUnicaEvitaUnDuplicadoConcurrente() {
+        PlantillaSesionEntrenamientoRequestDto request = new PlantillaSesionEntrenamientoRequestDto();
+        request.setClientId("sesion-local-42");
+        request.setNombreSesion("Push");
+
+        PlantillaSesionEntrenamientoVO existente = crearSesion(42L, "sesion-local-42");
+
+        when(sesionEntrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("sesion-local-42", 9L))
+                .thenReturn(Optional.empty(), Optional.of(existente));
+        doThrow(new DataIntegrityViolationException("uq_plantillas_sesion_usuario_id_frontend"))
+                .when(sesionEntrenamientoRepository)
+                .saveAndFlush(any(PlantillaSesionEntrenamientoVO.class));
+
+        PlantillaSesionEntrenamientoResponseDto response = sesionEntrenamientoService.crear(request);
+
+        assertThat(response.getId()).isEqualTo("42");
+        assertThat(response.getClientId()).isEqualTo("sesion-local-42");
     }
 
     private PlantillaSesionEntrenamientoVO crearSesion(Long id, String clientId) {

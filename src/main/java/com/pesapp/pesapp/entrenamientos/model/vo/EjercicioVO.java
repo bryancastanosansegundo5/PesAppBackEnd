@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,7 +20,13 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "ejercicios")
+@Table(
+        name = "ejercicios",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_ejercicios_usuario_client_id",
+                    columnNames = {"usuario_id", "client_id"})
+        })
 public class EjercicioVO extends AuditoriaVO {
 
     @Id

@@ -1,0 +1,6 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed Apr 29 23:40:34 CEST 2026
+@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1777498834847
+@default-spring-milestones-https\://repo.spring.io/milestone/.lastUpdated=1777498834787
+https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:3.2.5 from/to central (https\://repo.maven.apache.org/maven2)\: Permission denied\: getsockopt
+https\://repo.spring.io/milestone/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:3.2.5 from/to spring-milestones (https\://repo.spring.io/milestone)\: Permission denied\: getsockopt

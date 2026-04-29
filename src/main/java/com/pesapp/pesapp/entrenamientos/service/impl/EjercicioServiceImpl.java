@@ -13,6 +13,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +54,7 @@ public class EjercicioServiceImpl implements EjercicioService {
 
         validarVersion(request.getVersion(), ejercicio);
         copiarCampos(request, ejercicio);
-        return toResponse(ejercicioRepository.saveAndFlush(ejercicio));
+        return toResponse(guardarEjercicioIdempotente(ejercicio, request, usuario.getId()));
     }
 
     @Override
@@ -65,7 +66,7 @@ public class EjercicioServiceImpl implements EjercicioService {
             ejercicio.setClientId(normalizarNullable(request.getClientId()));
         }
         copiarCampos(request, ejercicio);
-        return toResponse(ejercicio);
+        return toResponse(guardarEjercicioIdempotente(ejercicio, request, ejercicio.getUsuario().getId()));
     }
 
     @Override
@@ -82,6 +83,31 @@ public class EjercicioServiceImpl implements EjercicioService {
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
         return ejercicioRepository.findByIdAndUsuario_Id(id, usuario.getId())
                 .orElseThrow(() -> new EntityNotFoundException("No existe el ejercicio con id " + id));
+    }
+
+    private EjercicioVO guardarEjercicioIdempotente(EjercicioVO ejercicio, EjercicioRequestDto request, Long usuarioId) {
+        try {
+            return ejercicioRepository.saveAndFlush(ejercicio);
+        } catch (DataIntegrityViolationException exception) {
+            String clientId = normalizarNullable(request.getClientId());
+            if (clientId != null) {
+                EjercicioVO existente = ejercicioRepository
+                        .findFirstByClientIdAndUsuario_IdOrderByIdDesc(clientId, usuarioId)
+                        .orElse(null);
+                if (existente != null) {
+                    return existente;
+                }
+            }
+
+            if (ejercicio.getId() != null) {
+                EjercicioVO existente = ejercicioRepository.findByIdAndUsuario_Id(ejercicio.getId(), usuarioId).orElse(null);
+                if (existente != null) {
+                    return existente;
+                }
+            }
+
+            throw exception;
+        }
     }
 
     private void copiarCampos(EjercicioRequestDto request, EjercicioVO ejercicio) {
