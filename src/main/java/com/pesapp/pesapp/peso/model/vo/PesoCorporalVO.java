@@ -53,6 +53,9 @@ public class PesoCorporalVO extends AuditoriaVO {
     @Column(name = "hora_manual", nullable = false)
     private boolean horaManual;
 
+    @Column(name = "comentario", length = 1000)
+    private String comentario;
+
     @Column(name = "fecha", nullable = false)
     private LocalDateTime fecha;
 }

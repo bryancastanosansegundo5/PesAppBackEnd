@@ -17,6 +17,7 @@ public class PesoCorporalResponseDto {
     private LocalDate fechaRegistro;
     private String horaRegistro;
     private Boolean horaManual;
+    private String comentario;
     private LocalDateTime fecha;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

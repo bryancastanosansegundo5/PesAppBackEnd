@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -63,6 +64,11 @@ public class EntrenamientoExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponseDto> handleAuthentication(AuthenticationException exception) {
         return buildResponse(HttpStatus.UNAUTHORIZED, "No autorizado", "Credenciales no validas");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccessDenied(AccessDeniedException exception) {
+        return buildResponse(HttpStatus.FORBIDDEN, "Acceso denegado", exception.getMessage());
     }
 
     @ExceptionHandler(OptimisticLockException.class)

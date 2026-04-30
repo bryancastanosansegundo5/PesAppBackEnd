@@ -12,4 +12,6 @@ public interface PesoCorporalService {
     PesoCorporalResponseDto guardarPesoHoy(PesoHoyRequestDto request);
 
     PesoCorporalResponseDto guardar(PesoCorporalRequestDto request);
+
+    void eliminar(Long id);
 }

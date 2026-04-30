@@ -18,6 +18,7 @@ Respuesta ejemplo:
     "fechaRegistro": "2026-04-25",
     "horaRegistro": "08:00",
     "horaManual": false,
+    "comentario": "Peso en ayunas tras descansar bien",
     "fecha": "2026-04-25T08:00:00",
     "createdAt": "2026-04-25T08:00:00",
     "updatedAt": "2026-04-25T12:15:00",
@@ -38,6 +39,7 @@ Request ejemplo:
   "horaRegistro": "12:15",
   "horaManual": false,
   "clientId": "peso-2026-04-25",
+  "comentario": "Peso en ayunas tras descansar bien",
   "version": 2
 }
 ```
@@ -53,6 +55,7 @@ Respuesta ejemplo:
   "fechaRegistro": "2026-04-25",
   "horaRegistro": "12:15",
   "horaManual": false,
+  "comentario": "Peso en ayunas tras descansar bien",
   "fecha": "2026-04-25T12:15:00",
   "createdAt": "2026-04-25T08:00:00",
   "updatedAt": "2026-04-25T12:15:00",
@@ -73,6 +76,7 @@ Request ejemplo:
   "horaRegistro": "21:40",
   "horaManual": true,
   "clientId": "peso-2026-04-24",
+  "comentario": "Peso antes del desayuno",
   "version": 1
 }
 ```
@@ -88,12 +92,23 @@ Respuesta ejemplo:
   "fechaRegistro": "2026-04-24",
   "horaRegistro": "21:40",
   "horaManual": true,
+  "comentario": "Peso antes del desayuno",
   "fecha": "2026-04-24T21:40:00",
   "createdAt": "2026-04-25T09:10:00",
   "updatedAt": "2026-04-25T09:10:00",
   "version": 1
 }
 ```
+
+### `DELETE /api/peso/{id}`
+
+Elimina de forma definitiva un registro de peso. Un usuario solo puede borrar sus propios registros; un admin puede borrar cualquier registro.
+
+Respuestas:
+
+- `204 No Content` si el registro se elimina correctamente
+- `404 Not Found` si no existe un peso con ese `id`
+- `403 Forbidden` si el usuario autenticado no tiene permisos sobre ese registro
 
 ## Contrato de errores
 

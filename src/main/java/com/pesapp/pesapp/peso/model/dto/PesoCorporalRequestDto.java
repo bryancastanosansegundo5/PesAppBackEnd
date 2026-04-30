@@ -35,5 +35,8 @@ public class PesoCorporalRequestDto {
     @NotNull(message = "El indicador horaManual es obligatorio")
     private Boolean horaManual;
 
+    @Size(max = 1000, message = "El comentario no puede superar 1000 caracteres")
+    private String comentario;
+
     private Long version;
 }

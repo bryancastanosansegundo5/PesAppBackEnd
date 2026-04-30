@@ -6,8 +6,10 @@ import com.pesapp.pesapp.peso.model.dto.PesoHoyRequestDto;
 import com.pesapp.pesapp.peso.model.vo.PesoCorporalVO;
 import com.pesapp.pesapp.peso.repository.PesoCorporalRepository;
 import com.pesapp.pesapp.peso.service.PesoCorporalService;
+import com.pesapp.pesapp.usuarios.model.vo.RolUsuario;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,6 +19,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -53,6 +56,7 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
                 request.getPeso(),
                 request.getHoraRegistro(),
                 request.getHoraManual(),
+                request.getComentario(),
                 clientId,
                 request.getVersion());
     }
@@ -72,8 +76,23 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
                 request.getPeso(),
                 request.getHoraRegistro(),
                 request.getHoraManual(),
+                request.getComentario(),
                 clientId,
                 request.getVersion());
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(Long id) {
+        UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
+        PesoCorporalVO peso = pesoCorporalRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No existe el peso corporal con id " + id));
+
+        if (!puedeEliminar(usuario, peso)) {
+            throw new AccessDeniedException("No tienes permisos para eliminar este registro de peso");
+        }
+
+        pesoCorporalRepository.delete(peso);
     }
 
     private PesoCorporalVO buscarParaUpsert(Long usuarioId, String clientId) {
@@ -102,6 +121,7 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
             java.math.BigDecimal pesoRequest,
             String horaRegistroRequest,
             Boolean horaManualRequest,
+            String comentarioRequest,
             String clientId,
             Long versionEsperada) {
         if (peso.getId() == null) {
@@ -117,6 +137,7 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
         peso.setHoraManual(Boolean.TRUE.equals(horaManualRequest));
         String horaRegistroFinal = resolverHoraRegistro(horaRegistroRequest, peso.isHoraManual(), fechaRegistroFinal);
         peso.setHoraRegistro(horaRegistroFinal);
+        peso.setComentario(normalizarNullable(comentarioRequest));
         peso.setFecha(LocalDateTime.of(fechaRegistroFinal, parseHora(horaRegistroFinal)));
         if (peso.getClientId() == null) {
             peso.setClientId(clientId);
@@ -134,11 +155,16 @@ public class PesoCorporalServiceImpl implements PesoCorporalService {
         response.setFechaRegistro(peso.getFechaRegistro());
         response.setHoraRegistro(peso.getHoraRegistro());
         response.setHoraManual(peso.isHoraManual());
+        response.setComentario(peso.getComentario());
         response.setFecha(peso.getFecha());
         response.setCreatedAt(peso.getCreatedAt());
         response.setUpdatedAt(peso.getUpdatedAt());
         response.setVersion(peso.getVersion());
         return response;
+    }
+
+    private boolean puedeEliminar(UsuarioVO usuario, PesoCorporalVO peso) {
+        return usuario.getRol() == RolUsuario.ADMIN || peso.getUsuario().getId().equals(usuario.getId());
     }
 
     private String resolverHoraRegistro(String horaRegistroRequest, boolean horaManual, LocalDate fechaRegistro) {
