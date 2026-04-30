@@ -3,15 +3,19 @@ package com.pesapp.pesapp.adminideas.controller;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pesapp.pesapp.adminideas.model.dto.AdminIdeaResponseDto;
 import com.pesapp.pesapp.adminideas.service.AdminIdeaService;
+import com.pesapp.pesapp.usuarios.model.vo.RolUsuario;
+import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
+import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
 import jakarta.persistence.OptimisticLockException;
+import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -19,8 +23,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,6 +38,12 @@ class AdminIdeaControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @MockBean
     private AdminIdeaService adminIdeaService;
@@ -46,6 +59,34 @@ class AdminIdeaControllerTest {
     void debeResponder403SiElRolNoEsAdmin() throws Exception {
         mockMvc.perform(get("/api/admin/ideas")).andExpect(status().isForbidden());
         verifyNoInteractions(adminIdeaService);
+    }
+
+    @Test
+    void debeAceptarCookieJwtDeAdminReal() throws Exception {
+        UsuarioVO admin = new UsuarioVO();
+        admin.setNombre("Admin Test");
+        admin.setUsername("adminideas");
+        admin.setEmail("adminideas@pesapp.local");
+        admin.setPasswordHash(passwordEncoder.encode("ChangeMe123!"));
+        admin.setRol(RolUsuario.ADMIN);
+        admin.setActivo(true);
+        usuarioRepository.saveAndFlush(admin);
+
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "username", "adminideas",
+                                "password", "ChangeMe123!"))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie accessCookie = login.getResponse().getCookie("pesapp_access_token");
+        when(adminIdeaService.obtenerIdeas()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/admin/ideas")
+                        .cookie(accessCookie)
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173"))
+                .andExpect(status().isOk());
     }
 
     @Test
