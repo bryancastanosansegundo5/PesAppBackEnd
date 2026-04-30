@@ -3,6 +3,8 @@ package com.pesapp.pesapp.security;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -88,6 +90,10 @@ public class AuthCookieService {
         return extraerCookie(request, accessCookieName);
     }
 
+    public List<String> extraerAccessTokens(HttpServletRequest request) {
+        return extraerCookies(request, accessCookieName);
+    }
+
     public String extraerRefreshToken(HttpServletRequest request) {
         return extraerCookie(request, refreshCookieName);
     }
@@ -104,18 +110,24 @@ public class AuthCookieService {
     }
 
     private String extraerCookie(HttpServletRequest request, String nombre) {
+        List<String> valores = extraerCookies(request, nombre);
+        return valores.isEmpty() ? null : valores.get(0);
+    }
+
+    private List<String> extraerCookies(HttpServletRequest request, String nombre) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
-            return null;
+            return List.of();
         }
 
+        List<String> valores = new ArrayList<>();
         for (Cookie cookie : cookies) {
             if (nombre.equals(cookie.getName())) {
-                return cookie.getValue();
+                valores.add(cookie.getValue());
             }
         }
 
-        return null;
+        return valores;
     }
 
     private String normalizarDominio() {

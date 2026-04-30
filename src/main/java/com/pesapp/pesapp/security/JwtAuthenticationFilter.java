@@ -45,9 +45,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private List<String> extraerTokens(HttpServletRequest request) {
         List<String> tokens = new ArrayList<>();
-        String accessCookie = authCookieService.extraerAccessToken(request);
-        if (accessCookie != null && !accessCookie.isBlank()) {
-            tokens.add(accessCookie);
+        for (String accessCookie : authCookieService.extraerAccessTokens(request)) {
+            if (accessCookie != null && !accessCookie.isBlank()) {
+                tokens.add(accessCookie);
+            }
         }
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);

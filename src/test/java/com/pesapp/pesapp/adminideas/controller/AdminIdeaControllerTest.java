@@ -63,10 +63,32 @@ class AdminIdeaControllerTest {
 
     @Test
     void debeAceptarCookieJwtDeAdminReal() throws Exception {
+        Cookie accessCookie = loginYObtenerAccessCookie();
+        when(adminIdeaService.obtenerIdeas()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/admin/ideas")
+                        .cookie(accessCookie)
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void debeProbarTodasLasCookiesAccessTokenSiHayDuplicadas() throws Exception {
+        Cookie accessCookie = loginYObtenerAccessCookie();
+        Cookie cookieAntigua = new Cookie("pesapp_access_token", "token-antiguo-invalido");
+        when(adminIdeaService.obtenerIdeas()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/admin/ideas")
+                        .cookie(cookieAntigua, accessCookie)
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173"))
+                .andExpect(status().isOk());
+    }
+
+    private Cookie loginYObtenerAccessCookie() throws Exception {
         UsuarioVO admin = new UsuarioVO();
         admin.setNombre("Admin Test");
-        admin.setUsername("adminideas");
-        admin.setEmail("adminideas@pesapp.local");
+        admin.setUsername("adminideas-" + java.util.UUID.randomUUID());
+        admin.setEmail(admin.getUsername() + "@pesapp.local");
         admin.setPasswordHash(passwordEncoder.encode("ChangeMe123!"));
         admin.setRol(RolUsuario.ADMIN);
         admin.setActivo(true);
@@ -75,18 +97,12 @@ class AdminIdeaControllerTest {
         MvcResult login = mockMvc.perform(post("/api/auth/login")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(java.util.Map.of(
-                                "username", "adminideas",
+                                "username", admin.getUsername(),
                                 "password", "ChangeMe123!"))))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        Cookie accessCookie = login.getResponse().getCookie("pesapp_access_token");
-        when(adminIdeaService.obtenerIdeas()).thenReturn(List.of());
-
-        mockMvc.perform(get("/api/admin/ideas")
-                        .cookie(accessCookie)
-                        .header(HttpHeaders.ORIGIN, "http://localhost:5173"))
-                .andExpect(status().isOk());
+        return login.getResponse().getCookie("pesapp_access_token");
     }
 
     @Test
