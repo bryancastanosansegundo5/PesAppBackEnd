@@ -7,13 +7,20 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EntrenamientoRepository extends JpaRepository<RegistroEntrenamientoVO, Long> {
 
-    List<RegistroEntrenamientoVO> findAllByUsuario_IdOrderByFechaFinalizacionDescFechaInicioDesc(Long usuarioId);
+    List<RegistroEntrenamientoVO> findAllByUsuario_IdAndDeletedAtIsNullOrderByFechaFinalizacionDescFechaInicioDesc(
+            Long usuarioId);
+
+    Optional<RegistroEntrenamientoVO> findByIdAndUsuario_IdAndDeletedAtIsNull(Long id, Long usuarioId);
 
     Optional<RegistroEntrenamientoVO> findByIdAndUsuario_Id(Long id, Long usuarioId);
 
+    Optional<RegistroEntrenamientoVO>
+            findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc(String idFrontend, Long usuarioId);
+
     Optional<RegistroEntrenamientoVO> findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(String idFrontend, Long usuarioId);
 
-    Optional<RegistroEntrenamientoVO> findFirstByPlantillaSesion_IdAndUsuario_IdOrderByFechaFinalizacionDescFechaInicioDescIdDesc(
+    Optional<RegistroEntrenamientoVO>
+            findFirstByPlantillaSesion_IdAndUsuario_IdAndDeletedAtIsNullOrderByFechaFinalizacionDescFechaInicioDescIdDesc(
             Long plantillaSesionId,
             Long usuarioId);
 }

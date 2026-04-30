@@ -2,6 +2,7 @@ package com.pesapp.pesapp.entrenamientos.service.impl;
 
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEjercicioRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEjercicioResponseDto;
+import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoDeleteRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoResponseDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroSerieRequestDto;
@@ -24,6 +25,7 @@ import com.pesapp.pesapp.usuarios.service.UsuarioService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +57,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
             entrenamiento.setUsuario(usuario);
         }
 
+        validarCreacion(request);
         validarVersion(request.getVersion(), entrenamiento);
         entrenamiento.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getId())));
         entrenamiento.setPlantillaSesion(buscarPlantillaSesionOpcional(request.getIdSesion(), usuario.getId()));
@@ -64,17 +67,56 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
                 request.getFechaFin() == null ? LocalDateTime.now() : request.getFechaFin());
 
         validarFechas(entrenamiento);
-        entrenamiento.getEjercicios().clear();
-        request.getEjercicios().forEach(ejercicioRequest -> entrenamiento.addEjercicio(toEntity(ejercicioRequest)));
+        reemplazarEjercicios(entrenamiento, request.getEjercicios());
 
         return toResponse(guardarEntrenamientoIdempotente(entrenamiento, request, usuario.getId()));
+    }
+
+    @Override
+    @Transactional
+    public RegistroEntrenamientoResponseDto actualizarEntrenamiento(Long id, RegistroEntrenamientoRequestDto request) {
+        UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
+        RegistroEntrenamientoVO entrenamiento = buscarEntrenamientoActivo(id, usuario.getId());
+
+        validarIdentificadorRequest(id, request.getId());
+        validarVersion(request.getVersion(), entrenamiento);
+
+        entrenamiento.setIdFrontend(resolverClientIdActualizacion(entrenamiento, request));
+        entrenamiento.setPlantillaSesion(buscarPlantillaSesionOpcional(request.getIdSesion(), usuario.getId()));
+        entrenamiento.setNombreSesion(normalizar(request.getNombreSesion()));
+        entrenamiento.setFechaInicio(request.getFechaInicio() == null ? entrenamiento.getFechaInicio() : request.getFechaInicio());
+        entrenamiento.setFechaFinalizacion(
+                request.getFechaFin() == null ? entrenamiento.getFechaFinalizacion() : request.getFechaFin());
+
+        validarFechas(entrenamiento);
+        reemplazarEjercicios(entrenamiento, request.getEjercicios());
+
+        return toResponse(guardarEntrenamientoIdempotente(entrenamiento, request, usuario.getId()));
+    }
+
+    @Override
+    @Transactional
+    public void eliminarEntrenamiento(String identificador, RegistroEntrenamientoDeleteRequestDto request) {
+        UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
+        RegistroEntrenamientoVO entrenamiento = resolverEntrenamientoParaEliminar(identificador, request, usuario.getId());
+
+        validarClientIdDelete(request, entrenamiento);
+
+        if (entrenamiento.isDeleted()) {
+            return;
+        }
+
+        validarVersion(request == null ? null : request.getVersion(), entrenamiento);
+        entrenamiento.setDeletedAt(LocalDateTime.now());
+        entrenamientoRepository.saveAndFlush(entrenamiento);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RegistroEntrenamientoResponseDto> obtenerHistorico() {
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
-        return entrenamientoRepository.findAllByUsuario_IdOrderByFechaFinalizacionDescFechaInicioDesc(usuario.getId())
+        return entrenamientoRepository.findAllByUsuario_IdAndDeletedAtIsNullOrderByFechaFinalizacionDescFechaInicioDesc(
+                        usuario.getId())
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -101,13 +143,13 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         Optional<RegistroEjercicioVO> ultimoRegistro = Optional.empty();
         if (existeCatalogo) {
             ultimoRegistro = registroEjercicioRepository
-                    .findFirstByEjercicioCatalogo_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
+                    .findFirstByEjercicioCatalogo_IdAndRegistroEntrenamiento_Usuario_IdAndRegistroEntrenamiento_DeletedAtIsNullAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
                             plantillaEjercicioId, usuario.getId());
         }
 
         if (ultimoRegistro.isEmpty() && existeLegacy) {
             ultimoRegistro = registroEjercicioRepository
-                    .findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
+                    .findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndRegistroEntrenamiento_DeletedAtIsNullAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
                             plantillaEjercicioId, usuario.getId());
         }
 
@@ -123,7 +165,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         }
 
         return entrenamientoRepository
-                .findFirstByPlantillaSesion_IdAndUsuario_IdOrderByFechaFinalizacionDescFechaInicioDescIdDesc(
+                .findFirstByPlantillaSesion_IdAndUsuario_IdAndDeletedAtIsNullOrderByFechaFinalizacionDescFechaInicioDescIdDesc(
                         plantillaSesionId,
                         usuario.getId())
                 .map(this::toResponse);
@@ -131,7 +173,11 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
 
     private RegistroEntrenamientoVO buscarEntrenamiento(Long id) {
         UsuarioVO usuario = usuarioService.obtenerUsuarioAutenticado();
-        return entrenamientoRepository.findByIdAndUsuario_Id(id, usuario.getId())
+        return buscarEntrenamientoActivo(id, usuario.getId());
+    }
+
+    private RegistroEntrenamientoVO buscarEntrenamientoActivo(Long id, Long usuarioId) {
+        return entrenamientoRepository.findByIdAndUsuario_IdAndDeletedAtIsNull(id, usuarioId)
                 .orElseThrow(() -> new EntityNotFoundException("No existe el entrenamiento con id " + id));
     }
 
@@ -159,7 +205,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
             String clientId = normalizarNullable(request.getClientId());
             if (clientId != null) {
                 RegistroEntrenamientoVO existente = entrenamientoRepository
-                        .findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(clientId, usuarioId)
+                        .findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc(clientId, usuarioId)
                         .orElse(null);
                 if (existente != null) {
                     return existente;
@@ -195,7 +241,6 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
     }
 
     private RegistroEjercicioVO toEntity(RegistroEjercicioRequestDto request) {
-        validarEjercicio(request);
         PlantillaEjercicioVO plantillaEjercicio = buscarPlantillaEjercicioOpcional(request.getPlantillaEjercicioId());
         EjercicioVO ejercicioCatalogo = buscarEjercicioCatalogoOpcional(request.getCatalogoEjercicioId(), plantillaEjercicio);
 
@@ -216,10 +261,11 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         ejercicio.setCompletado(request.isCompletado());
         ejercicio.setOmitido(request.isOmitido());
 
-        if (!request.isOmitido()) {
-            for (int i = 0; i < request.getSeriesRealizadas().size(); i++) {
-                ejercicio.addSerieRealizada(toEntity(request.getSeriesRealizadas().get(i), i + 1));
-            }
+        List<RegistroSerieRequestDto> series = request.getSeriesRealizadas() == null
+                ? List.of()
+                : request.getSeriesRealizadas();
+        for (int i = 0; i < series.size(); i++) {
+            ejercicio.addSerieRealizada(toEntity(series.get(i), i + 1));
         }
 
         return ejercicio;
@@ -250,13 +296,6 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         return serie;
     }
 
-    private void validarEjercicio(RegistroEjercicioRequestDto request) {
-        if (!request.isOmitido() && request.getSeriesRealizadas().isEmpty()) {
-            throw new IllegalArgumentException(
-                    "El ejercicio " + request.getNombre() + " necesita series realizadas o debe marcarse como omitido");
-        }
-    }
-
     private void validarFechas(RegistroEntrenamientoVO entrenamiento) {
         if (entrenamiento.getFechaFinalizacion().isBefore(entrenamiento.getFechaInicio())) {
             throw new IllegalArgumentException("La fecha de finalizacion no puede ser anterior a la fecha de inicio");
@@ -269,7 +308,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         String clientId = normalizarNullable(request.getClientId());
         if (clientId != null) {
             RegistroEntrenamientoVO entrenamiento = entrenamientoRepository
-                    .findFirstByIdFrontendAndUsuario_IdOrderByIdDesc(clientId, usuario.getId())
+                    .findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc(clientId, usuario.getId())
                     .orElse(null);
             if (entrenamiento != null) {
                 return entrenamiento;
@@ -285,6 +324,112 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
                 && !versionEsperada.equals(entrenamiento.getVersion())) {
             throw new OptimisticLockException("La version enviada no coincide con la version actual del recurso");
         }
+    }
+
+    private void validarCreacion(RegistroEntrenamientoRequestDto request) {
+        if (request.getEjercicios() == null || request.getEjercicios().isEmpty()) {
+            throw new IllegalArgumentException("El entrenamiento debe tener al menos un ejercicio");
+        }
+    }
+
+    private void reemplazarEjercicios(
+            RegistroEntrenamientoVO entrenamiento,
+            List<RegistroEjercicioRequestDto> ejerciciosRequest) {
+        if (entrenamiento.getId() != null && !entrenamiento.getEjercicios().isEmpty()) {
+            List<RegistroEjercicioVO> ejerciciosPersistidos = new ArrayList<>(entrenamiento.getEjercicios());
+            entrenamiento.getEjercicios().clear();
+            registroEjercicioRepository.deleteAllInBatch(ejerciciosPersistidos);
+            registroEjercicioRepository.flush();
+        } else {
+            entrenamiento.getEjercicios().clear();
+        }
+
+        List<RegistroEjercicioRequestDto> ejercicios = ejerciciosRequest == null ? new ArrayList<>() : ejerciciosRequest;
+        ejercicios.forEach(ejercicioRequest -> entrenamiento.addEjercicio(toEntity(ejercicioRequest)));
+    }
+
+    private void validarIdentificadorRequest(Long idPath, String idBody) {
+        Long idBodyNumerico = parseId(idBody);
+        if (idBodyNumerico != null && !idPath.equals(idBodyNumerico)) {
+            throw new IllegalArgumentException("El id del cuerpo no coincide con el id de la ruta");
+        }
+    }
+
+    private void validarClientIdDelete(
+            RegistroEntrenamientoDeleteRequestDto request,
+            RegistroEntrenamientoVO entrenamiento) {
+        if (request == null || request.getClientId() == null || request.getClientId().isBlank()) {
+            return;
+        }
+
+        String clientId = normalizarNullable(request.getClientId());
+        String persistido = normalizarNullable(entrenamiento.getIdFrontend());
+        if (persistido != null && !persistido.equals(clientId)) {
+            throw new IllegalArgumentException("El clientId del cuerpo no coincide con el entrenamiento indicado");
+        }
+    }
+
+    private RegistroEntrenamientoVO resolverEntrenamientoParaEliminar(
+            String identificador,
+            RegistroEntrenamientoDeleteRequestDto request,
+            Long usuarioId) {
+        String clientIdRequest = normalizarNullable(request == null ? null : request.getClientId());
+        String identificadorNormalizado = normalizarNullable(identificador);
+        Long idPath = parseId(identificadorNormalizado);
+        Long idBody = parseId(request == null ? null : request.getId());
+
+        RegistroEntrenamientoVO entrenamiento = null;
+        Long idResolver = idPath != null ? idPath : idBody;
+
+        if (idResolver != null) {
+            entrenamiento = entrenamientoRepository.findByIdAndUsuario_Id(idResolver, usuarioId)
+                    .orElseThrow(() -> new EntityNotFoundException("No existe el entrenamiento con id " + idResolver));
+        } else if (clientIdRequest != null) {
+            entrenamiento = entrenamientoRepository
+                    .findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc(clientIdRequest, usuarioId)
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "No existe el entrenamiento con clientId " + clientIdRequest));
+        } else if (idPath == null && identificadorNormalizado != null) {
+            entrenamiento = entrenamientoRepository
+                    .findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc(identificadorNormalizado, usuarioId)
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "No existe el entrenamiento con clientId " + identificadorNormalizado));
+        } else {
+            throw new IllegalArgumentException("Debes indicar el id o el clientId del entrenamiento a eliminar");
+        }
+
+        if (idPath != null && !idPath.equals(entrenamiento.getId())) {
+            throw new IllegalArgumentException("El id de la ruta no coincide con el entrenamiento indicado");
+        }
+
+        if (idBody != null && !idBody.equals(entrenamiento.getId())) {
+            throw new IllegalArgumentException("El id del cuerpo no coincide con el entrenamiento indicado");
+        }
+
+        if (clientIdRequest != null) {
+            String clientIdPersistido = normalizarNullable(entrenamiento.getIdFrontend());
+            if (clientIdPersistido != null && !clientIdPersistido.equals(clientIdRequest)) {
+                throw new IllegalArgumentException("El clientId del cuerpo no coincide con el entrenamiento indicado");
+            }
+        }
+
+        return entrenamiento;
+    }
+
+    private String resolverClientIdActualizacion(
+            RegistroEntrenamientoVO entrenamiento,
+            RegistroEntrenamientoRequestDto request) {
+        String clientId = normalizarNullable(request.getClientId());
+        if (clientId != null && !clientId.isBlank()) {
+            return clientId;
+        }
+
+        String idBody = normalizarNullable(request.getId());
+        if (idBody != null && parseId(idBody) == null) {
+            return idBody;
+        }
+
+        return normalizarNullable(entrenamiento.getIdFrontend());
     }
 
     private RegistroEntrenamientoResponseDto toResponse(RegistroEntrenamientoVO entrenamiento) {

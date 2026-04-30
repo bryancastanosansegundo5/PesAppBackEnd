@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEjercicioRequestDto;
+import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoDeleteRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoRequestDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroEntrenamientoResponseDto;
 import com.pesapp.pesapp.entrenamientos.model.dto.RegistroSerieRequestDto;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -70,7 +72,7 @@ class EntrenamientoServiceImplTest {
         usuario.setId(9L);
         usuario.setUsername("bryan");
         lenient().when(usuarioService.obtenerUsuarioAutenticado()).thenReturn(usuario);
-        when(usuarioRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(usuario));
+        lenient().when(usuarioRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(usuario));
         lenient().when(entrenamientoRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -79,7 +81,7 @@ class EntrenamientoServiceImplTest {
         EjercicioVO catalogo = new EjercicioVO();
         catalogo.setId(7L);
 
-        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("entreno-offline-1", 9L))
+        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entreno-offline-1", 9L))
                 .thenReturn(Optional.empty());
         when(ejercicioRepository.findByIdAndUsuario_Id(7L, 9L)).thenReturn(Optional.of(catalogo));
 
@@ -95,7 +97,7 @@ class EntrenamientoServiceImplTest {
 
     @Test
     void debeGuardarEntrenoOfflineConEjercicioAdHoc() {
-        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("entreno-offline-2", 9L))
+        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entreno-offline-2", 9L))
                 .thenReturn(Optional.empty());
 
         RegistroEntrenamientoResponseDto response =
@@ -117,7 +119,7 @@ class EntrenamientoServiceImplTest {
         existente.setUsuario(usuario);
         existente.setNombreSesion("Sesion antigua");
 
-        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("entreno-offline-1", 9L))
+        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entreno-offline-1", 9L))
                 .thenReturn(Optional.of(existente));
         when(ejercicioRepository.findByIdAndUsuario_Id(7L, 9L)).thenReturn(Optional.of(crearCatalogo(7L)));
 
@@ -131,7 +133,7 @@ class EntrenamientoServiceImplTest {
 
     @Test
     void debeFallarSiCatalogoEjercicioIdNoExiste() {
-        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("entreno-offline-1", 9L))
+        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entreno-offline-1", 9L))
                 .thenReturn(Optional.empty());
         when(ejercicioRepository.findByIdAndUsuario_Id(7L, 9L)).thenReturn(Optional.empty());
 
@@ -142,7 +144,7 @@ class EntrenamientoServiceImplTest {
 
     @Test
     void debeFallarSiPlantillaEjercicioIdNoExiste() {
-        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("entreno-offline-3", 9L))
+        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entreno-offline-3", 9L))
                 .thenReturn(Optional.empty());
         when(plantillaEjercicioRepository.findByIdAndPlantillaSesion_Usuario_Id(123L, 9L))
                 .thenReturn(Optional.empty());
@@ -154,13 +156,133 @@ class EntrenamientoServiceImplTest {
 
     @Test
     void debeFallarSiIdSesionNoExiste() {
-        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdOrderByIdDesc("entreno-offline-4", 9L))
+        when(entrenamientoRepository.findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entreno-offline-4", 9L))
                 .thenReturn(Optional.empty());
         when(sesionEntrenamientoRepository.findByIdAndUsuario_Id(45L, 9L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> entrenamientoService.guardarEntrenamientoFinalizado(crearRequestConSesion("45")))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage("idSesion 45 no existe");
+    }
+
+    @Test
+    void debeActualizarEntrenamientoHistoricoReemplazandoEjerciciosYPermitiendoListaVacia() {
+        RegistroEntrenamientoVO existente = new RegistroEntrenamientoVO();
+        existente.setId(123L);
+        existente.setIdFrontend("entrenamiento-cliente-1");
+        existente.setUsuario(usuario);
+        existente.setNombreSesion("Sesion antigua");
+        existente.setFechaInicio(LocalDateTime.of(2026, 4, 29, 10, 0));
+        existente.setFechaFinalizacion(LocalDateTime.of(2026, 4, 29, 11, 0));
+        existente.setVersion(3L);
+
+        when(entrenamientoRepository.findByIdAndUsuario_IdAndDeletedAtIsNull(123L, 9L)).thenReturn(Optional.of(existente));
+
+        RegistroEntrenamientoRequestDto request = crearBaseRequest("entrenamiento-cliente-1");
+        request.setId("123");
+        request.setVersion(3L);
+        request.setEjercicios(List.of());
+
+        RegistroEntrenamientoResponseDto response = entrenamientoService.actualizarEntrenamiento(123L, request);
+
+        assertThat(response.getClientId()).isEqualTo("entrenamiento-cliente-1");
+        assertThat(response.getNombreSesion()).isEqualTo("Push offline");
+        assertThat(response.getEjercicios()).isEmpty();
+        verify(entrenamientoRepository).saveAndFlush(existente);
+    }
+
+    @Test
+    void debeEliminarEjerciciosPersistidosAntesDeInsertarLosNuevosEnUnaActualizacion() {
+        RegistroEntrenamientoVO existente = new RegistroEntrenamientoVO();
+        existente.setId(123L);
+        existente.setIdFrontend("entrenamiento-cliente-1");
+        existente.setUsuario(usuario);
+        existente.setNombreSesion("Sesion antigua");
+        existente.setFechaInicio(LocalDateTime.of(2026, 4, 29, 10, 0));
+        existente.setFechaFinalizacion(LocalDateTime.of(2026, 4, 29, 11, 0));
+        existente.setVersion(3L);
+        existente.addEjercicio(crearEjercicioPersistido("ejercicio-1777566366252-c3d12989385e98"));
+
+        when(entrenamientoRepository.findByIdAndUsuario_IdAndDeletedAtIsNull(123L, 9L)).thenReturn(Optional.of(existente));
+
+        RegistroEntrenamientoRequestDto request = crearBaseRequest("entrenamiento-cliente-1");
+        request.setId("123");
+        request.setVersion(3L);
+        request.setEjercicios(List.of(crearEjercicioCatalogo("ejercicio-1777566366252-c3d12989385e98", "7")));
+        when(ejercicioRepository.findByIdAndUsuario_Id(7L, 9L)).thenReturn(Optional.of(crearCatalogo(7L)));
+
+        entrenamientoService.actualizarEntrenamiento(123L, request);
+
+        InOrder inOrder = org.mockito.Mockito.inOrder(registroEjercicioRepository, entrenamientoRepository);
+        inOrder.verify(registroEjercicioRepository).deleteAllInBatch(any());
+        inOrder.verify(registroEjercicioRepository).flush();
+        inOrder.verify(entrenamientoRepository).saveAndFlush(existente);
+    }
+
+    @Test
+    void debeFallarAlActualizarSiLaVersionNoCoincide() {
+        RegistroEntrenamientoVO existente = new RegistroEntrenamientoVO();
+        existente.setId(123L);
+        existente.setIdFrontend("entrenamiento-cliente-1");
+        existente.setUsuario(usuario);
+        existente.setVersion(5L);
+        existente.setFechaInicio(LocalDateTime.of(2026, 4, 29, 10, 0));
+        existente.setFechaFinalizacion(LocalDateTime.of(2026, 4, 29, 11, 0));
+        existente.setNombreSesion("Sesion antigua");
+
+        when(entrenamientoRepository.findByIdAndUsuario_IdAndDeletedAtIsNull(123L, 9L)).thenReturn(Optional.of(existente));
+
+        RegistroEntrenamientoRequestDto request = crearBaseRequest("entrenamiento-cliente-1");
+        request.setId("123");
+        request.setVersion(4L);
+        request.setEjercicios(List.of());
+
+        assertThatThrownBy(() -> entrenamientoService.actualizarEntrenamiento(123L, request))
+                .isInstanceOf(jakarta.persistence.OptimisticLockException.class)
+                .hasMessage("La version enviada no coincide con la version actual del recurso");
+    }
+
+    @Test
+    void debeMarcarComoBorradoEntrenamientoHistorico() {
+        RegistroEntrenamientoVO existente = new RegistroEntrenamientoVO();
+        existente.setId(123L);
+        existente.setIdFrontend("entrenamiento-cliente-1");
+        existente.setUsuario(usuario);
+        existente.setVersion(4L);
+
+        when(entrenamientoRepository.findByIdAndUsuario_Id(123L, 9L)).thenReturn(Optional.of(existente));
+
+        RegistroEntrenamientoDeleteRequestDto request = new RegistroEntrenamientoDeleteRequestDto();
+        request.setId("123");
+        request.setClientId("entrenamiento-cliente-1");
+        request.setVersion(4L);
+
+        entrenamientoService.eliminarEntrenamiento("123", request);
+
+        assertThat(existente.getDeletedAt()).isNotNull();
+        verify(entrenamientoRepository).saveAndFlush(existente);
+    }
+
+    @Test
+    void debePermitirBorrarEntrenamientoUsandoClientIdComoIdentificadorPrincipal() {
+        RegistroEntrenamientoVO existente = new RegistroEntrenamientoVO();
+        existente.setId(123L);
+        existente.setIdFrontend("entrenamiento-cliente-1");
+        existente.setUsuario(usuario);
+        existente.setVersion(4L);
+
+        when(entrenamientoRepository
+                        .findFirstByIdFrontendAndUsuario_IdAndDeletedAtIsNullOrderByIdDesc("entrenamiento-cliente-1", 9L))
+                .thenReturn(Optional.of(existente));
+
+        RegistroEntrenamientoDeleteRequestDto request = new RegistroEntrenamientoDeleteRequestDto();
+        request.setClientId("entrenamiento-cliente-1");
+        request.setVersion(4L);
+
+        entrenamientoService.eliminarEntrenamiento("entrenamiento-cliente-1", request);
+
+        assertThat(existente.getDeletedAt()).isNotNull();
+        verify(entrenamientoRepository).saveAndFlush(existente);
     }
 
     private RegistroEntrenamientoRequestDto crearRequestCatalogo() {
@@ -233,6 +355,24 @@ class EntrenamientoServiceImplTest {
         serie.setRepeticiones(repeticiones);
         serie.setPeso(new BigDecimal(peso));
         return serie;
+    }
+
+    private com.pesapp.pesapp.entrenamientos.model.vo.RegistroEjercicioVO crearEjercicioPersistido(String clientId) {
+        com.pesapp.pesapp.entrenamientos.model.vo.RegistroEjercicioVO ejercicio =
+                new com.pesapp.pesapp.entrenamientos.model.vo.RegistroEjercicioVO();
+        ejercicio.setId(77L);
+        ejercicio.setIdFrontend(clientId);
+        ejercicio.setNombre("Press banca");
+        ejercicio.setDescripcion("Descripcion");
+        ejercicio.setGrupoMuscular("Pecho");
+        ejercicio.setPatronMovimiento("Empuje");
+        ejercicio.setEquipamiento("Barra");
+        ejercicio.setSeriesBase(3);
+        ejercicio.setRepeticionesBase(8);
+        ejercicio.setPesoBase(new BigDecimal("80"));
+        ejercicio.setCompletado(true);
+        ejercicio.setOmitido(false);
+        return ejercicio;
     }
 
     private EjercicioVO crearCatalogo(Long id) {

@@ -10,11 +10,13 @@ import org.springframework.data.repository.query.Param;
 
 public interface RegistroEjercicioRepository extends JpaRepository<RegistroEjercicioVO, Long> {
 
-    Optional<RegistroEjercicioVO> findFirstByEjercicioCatalogo_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
+    Optional<RegistroEjercicioVO>
+            findFirstByEjercicioCatalogo_IdAndRegistroEntrenamiento_Usuario_IdAndRegistroEntrenamiento_DeletedAtIsNullAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
             Long ejercicioId,
             Long usuarioId);
 
-    Optional<RegistroEjercicioVO> findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
+    Optional<RegistroEjercicioVO>
+            findFirstByPlantillaEjercicio_IdAndRegistroEntrenamiento_Usuario_IdAndRegistroEntrenamiento_DeletedAtIsNullAndOmitidoFalseOrderByRegistroEntrenamiento_FechaFinalizacionDescIdDesc(
             Long plantillaEjercicioId,
             Long usuarioId);
 
@@ -24,9 +26,10 @@ public interface RegistroEjercicioRepository extends JpaRepository<RegistroEjerc
               join fetch ejercicio.registroEntrenamiento entrenamiento
               left join fetch ejercicio.seriesRealizadas series
               left join fetch ejercicio.ejercicioCatalogo catalogo
-              left join fetch ejercicio.plantillaEjercicio plantilla
-              left join fetch plantilla.ejercicioCatalogo plantillaCatalogo
+             left join fetch ejercicio.plantillaEjercicio plantilla
+             left join fetch plantilla.ejercicioCatalogo plantillaCatalogo
              where entrenamiento.usuario.id = :usuarioId
+               and entrenamiento.deletedAt is null
                and ejercicio.omitido = false
              order by entrenamiento.fechaFinalizacion desc, entrenamiento.id desc, ejercicio.id desc, series.orden asc
             """)

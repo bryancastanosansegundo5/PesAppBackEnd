@@ -57,11 +57,18 @@ public class RegistroEntrenamientoVO extends AuditoriaVO {
     @Column(nullable = false)
     private LocalDateTime fechaFinalizacion;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @OneToMany(mappedBy = "registroEntrenamiento", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RegistroEjercicioVO> ejercicios = new ArrayList<>();
 
     public void addEjercicio(RegistroEjercicioVO ejercicio) {
         ejercicios.add(ejercicio);
         ejercicio.setRegistroEntrenamiento(this);
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 }
