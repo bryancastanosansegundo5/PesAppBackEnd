@@ -34,7 +34,8 @@ public class UsuarioUsernameColumnInitializer implements CommandLineRunner {
     private boolean isMySqlDatabase() {
         try (var connection = dataSource.getConnection()) {
             String productName = connection.getMetaData().getDatabaseProductName();
-            return productName != null && productName.toLowerCase().contains("mysql");
+            String productNameNormalizado = productName == null ? "" : productName.toLowerCase();
+            return productNameNormalizado.contains("mysql") || productNameNormalizado.contains("mariadb");
         } catch (Exception exception) {
             throw new IllegalStateException("No se pudo verificar el motor de base de datos", exception);
         }

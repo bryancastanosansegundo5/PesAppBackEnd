@@ -51,6 +51,9 @@ public class DataInitializer implements CommandLineRunner {
             if (existente.getRol() != rol) {
                 existente.setRol(rol);
             }
+            if (!existente.isActivo()) {
+                existente.setActivo(true);
+            }
             return;
         }
 

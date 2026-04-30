@@ -14,9 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Order(0)
 @RequiredArgsConstructor
-public class UsuarioRolColumnInitializer implements CommandLineRunner {
-
-    private static final int REQUIRED_ROL_LENGTH = 30;
+public class UsuarioActivoColumnInitializer implements CommandLineRunner {
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
@@ -27,13 +25,15 @@ public class UsuarioRolColumnInitializer implements CommandLineRunner {
             return;
         }
 
-        Map<String, Object> columnInfo = obtenerInfoColumnaRol();
-        if (columnInfo == null || !requiereNormalizacion(columnInfo)) {
+        if (obtenerInfoColumnaActivo() == null) {
+            jdbcTemplate.execute("ALTER TABLE usuarios ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE");
+            log.info("Columna usuarios.activo creada.");
             return;
         }
 
-        jdbcTemplate.execute("ALTER TABLE usuarios MODIFY COLUMN rol VARCHAR(30) NOT NULL");
-        log.info("Columna usuarios.rol normalizada a VARCHAR(30) para soportar los roles actuales.");
+        jdbcTemplate.execute("UPDATE usuarios SET activo = TRUE WHERE activo IS NULL");
+        jdbcTemplate.execute("ALTER TABLE usuarios MODIFY COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE");
+        log.info("Columna usuarios.activo normalizada a BOOLEAN NOT NULL DEFAULT TRUE.");
     }
 
     private boolean isMySqlDatabase() {
@@ -46,13 +46,13 @@ public class UsuarioRolColumnInitializer implements CommandLineRunner {
         }
     }
 
-    private Map<String, Object> obtenerInfoColumnaRol() {
+    private Map<String, Object> obtenerInfoColumnaActivo() {
         var resultados = jdbcTemplate.queryForList("""
-                SELECT DATA_TYPE, COLUMN_TYPE, CHARACTER_MAXIMUM_LENGTH
+                SELECT DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
                 FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
                   AND TABLE_NAME = 'usuarios'
-                  AND COLUMN_NAME = 'rol'
+                  AND COLUMN_NAME = 'activo'
                 """);
 
         if (resultados.isEmpty()) {
@@ -60,28 +60,5 @@ public class UsuarioRolColumnInitializer implements CommandLineRunner {
         }
 
         return resultados.getFirst();
-    }
-
-    private boolean requiereNormalizacion(Map<String, Object> columnInfo) {
-        String dataType = toLowerCase(columnInfo.get("DATA_TYPE"));
-        String columnType = toLowerCase(columnInfo.get("COLUMN_TYPE"));
-        Integer maxLength = toInteger(columnInfo.get("CHARACTER_MAXIMUM_LENGTH"));
-
-        if ("enum".equals(dataType) || columnType.startsWith("enum(")) {
-            return true;
-        }
-
-        return maxLength != null && maxLength < REQUIRED_ROL_LENGTH;
-    }
-
-    private String toLowerCase(Object value) {
-        return value == null ? "" : value.toString().toLowerCase();
-    }
-
-    private Integer toInteger(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        return null;
     }
 }
