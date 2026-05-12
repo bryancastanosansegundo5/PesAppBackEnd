@@ -42,6 +42,9 @@ public class PlantillaSesionEntrenamientoVO extends AuditoriaVO {
     @Column(nullable = false, length = 150)
     private String nombre;
 
+    @Column(length = 2000)
+    private String observaciones;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)
     private UsuarioVO usuario;

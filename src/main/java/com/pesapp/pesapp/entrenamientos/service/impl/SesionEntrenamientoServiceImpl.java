@@ -68,6 +68,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         validarVersion(request.getVersion(), sesion);
         sesion.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getId(), request.getIdSesion())));
         sesion.setNombre(normalizar(request.getNombreSesion()));
+        sesion.setObservaciones(normalizarNullable(request.getObservaciones()));
         actualizarEjercicios(sesion, request.getEjercicios());
 
         return toResponse(guardarSesionIdempotente(sesion, request, usuario.getId()));
@@ -82,6 +83,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
             sesion.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getId(), request.getIdSesion())));
         }
         sesion.setNombre(normalizar(request.getNombreSesion()));
+        sesion.setObservaciones(normalizarNullable(request.getObservaciones()));
         actualizarEjercicios(sesion, request.getEjercicios());
 
         return toResponse(guardarSesionIdempotente(sesion, request, sesion.getUsuario().getId()));
@@ -248,6 +250,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         ejercicio.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getIdEjercicio())));
         ejercicio.setNombre(normalizar(request.getNombre()));
         ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
+        ejercicio.setObservaciones(normalizarNullable(request.getObservaciones()));
         ejercicio.setGrupoMuscular(normalizarNullable(request.getGrupoMuscular()));
         ejercicio.setPatronMovimiento(normalizarNullable(request.getPatronMovimiento()));
         ejercicio.setEquipamiento(normalizarNullable(request.getEquipamiento()));
@@ -264,6 +267,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
         response.setIdSesion(toTexto(sesion.getId()));
         response.setClientId(sesion.getIdFrontend());
         response.setNombreSesion(sesion.getNombre());
+        response.setObservaciones(sesion.getObservaciones());
         response.setCreatedAt(sesion.getCreatedAt());
         response.setUpdatedAt(sesion.getUpdatedAt());
         response.setVersion(sesion.getVersion());
@@ -279,6 +283,7 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
                 ejercicio.getEjercicioCatalogo() == null ? null : toTexto(ejercicio.getEjercicioCatalogo().getId()));
         response.setNombre(ejercicio.getNombre());
         response.setDescripcion(ejercicio.getDescripcion());
+        response.setObservaciones(ejercicio.getObservaciones());
         response.setGrupoMuscular(ejercicio.getGrupoMuscular());
         response.setPatronMovimiento(ejercicio.getPatronMovimiento());
         response.setEquipamiento(ejercicio.getEquipamiento());
@@ -372,6 +377,11 @@ public class SesionEntrenamientoServiceImpl implements SesionEntrenamientoServic
     }
 
     private String normalizarNullable(String valor) {
-        return valor == null ? null : valor.trim();
+        if (valor == null) {
+            return null;
+        }
+
+        String normalizado = valor.trim();
+        return normalizado.isEmpty() ? null : normalizado;
     }
 }

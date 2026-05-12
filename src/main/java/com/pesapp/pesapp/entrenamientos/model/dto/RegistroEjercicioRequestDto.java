@@ -30,6 +30,9 @@ public class RegistroEjercicioRequestDto {
     @Size(max = 1000, message = "La descripcion no puede superar 1000 caracteres")
     private String descripcion;
 
+    @Size(max = 2000, message = "Las observaciones no pueden superar 2000 caracteres")
+    private String observaciones;
+
     @Size(max = 100, message = "El grupo muscular no puede superar 100 caracteres")
     private String grupoMuscular;
 

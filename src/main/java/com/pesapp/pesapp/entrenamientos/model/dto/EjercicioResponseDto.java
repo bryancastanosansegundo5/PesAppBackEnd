@@ -14,6 +14,7 @@ public class EjercicioResponseDto {
     private String clientId;
     private String nombre;
     private String descripcion;
+    private String observaciones;
     private String grupoMuscular;
     private String patronMovimiento;
     private String equipamiento;

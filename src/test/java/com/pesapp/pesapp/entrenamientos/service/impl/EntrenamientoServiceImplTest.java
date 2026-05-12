@@ -89,6 +89,7 @@ class EntrenamientoServiceImplTest {
                 entrenamientoService.guardarEntrenamientoFinalizado(crearRequestCatalogo());
 
         assertThat(response.getClientId()).isEqualTo("entreno-offline-1");
+        assertThat(response.getPersistedId()).isNull();
         assertThat(response.getEjercicios()).hasSize(1);
         assertThat(response.getEjercicios().getFirst().getCatalogoEjercicioId()).isEqualTo("7");
         assertThat(response.getEjercicios().getFirst().getPlantillaEjercicioId()).isNull();
@@ -123,12 +124,15 @@ class EntrenamientoServiceImplTest {
                 .thenReturn(Optional.of(existente));
         when(ejercicioRepository.findByIdAndUsuario_Id(7L, 9L)).thenReturn(Optional.of(crearCatalogo(7L)));
 
-        entrenamientoService.guardarEntrenamientoFinalizado(crearRequestCatalogo());
+        RegistroEntrenamientoResponseDto response =
+                entrenamientoService.guardarEntrenamientoFinalizado(crearRequestCatalogo());
 
         ArgumentCaptor<RegistroEntrenamientoVO> captor = ArgumentCaptor.forClass(RegistroEntrenamientoVO.class);
         verify(entrenamientoRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getId()).isEqualTo(55L);
         assertThat(captor.getValue().getNombreSesion()).isEqualTo("Push offline");
+        assertThat(response.getId()).isEqualTo("entreno-offline-1");
+        assertThat(response.getPersistedId()).isEqualTo("55");
     }
 
     @Test

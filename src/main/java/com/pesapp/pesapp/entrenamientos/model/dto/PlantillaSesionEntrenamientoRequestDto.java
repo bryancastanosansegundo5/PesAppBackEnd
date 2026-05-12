@@ -24,6 +24,9 @@ public class PlantillaSesionEntrenamientoRequestDto {
     @Size(max = 150, message = "El nombre de la sesion no puede superar 150 caracteres")
     private String nombreSesion;
 
+    @Size(max = 2000, message = "Las observaciones no pueden superar 2000 caracteres")
+    private String observaciones;
+
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
 

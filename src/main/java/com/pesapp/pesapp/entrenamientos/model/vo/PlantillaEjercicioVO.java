@@ -49,6 +49,9 @@ public class PlantillaEjercicioVO extends AuditoriaVO {
     @Column(length = 1000)
     private String descripcion;
 
+    @Column(length = 2000)
+    private String observaciones;
+
     @Column(length = 100)
     private String grupoMuscular;
 

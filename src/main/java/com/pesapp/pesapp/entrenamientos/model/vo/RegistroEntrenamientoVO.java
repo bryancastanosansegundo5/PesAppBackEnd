@@ -51,6 +51,9 @@ public class RegistroEntrenamientoVO extends AuditoriaVO {
     @Column(nullable = false, length = 150)
     private String nombreSesion;
 
+    @Column(length = 2000)
+    private String observaciones;
+
     @Column(nullable = false)
     private LocalDateTime fechaInicio;
 

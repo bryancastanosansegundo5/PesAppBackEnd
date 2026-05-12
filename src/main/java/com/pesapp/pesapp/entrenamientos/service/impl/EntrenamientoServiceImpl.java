@@ -62,6 +62,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         entrenamiento.setIdFrontend(normalizarNullable(primerValorConTexto(request.getClientId(), request.getId())));
         entrenamiento.setPlantillaSesion(buscarPlantillaSesionOpcional(request.getIdSesion(), usuario.getId()));
         entrenamiento.setNombreSesion(normalizar(request.getNombreSesion()));
+        entrenamiento.setObservaciones(normalizarNullable(request.getObservaciones()));
         entrenamiento.setFechaInicio(request.getFechaInicio() == null ? LocalDateTime.now() : request.getFechaInicio());
         entrenamiento.setFechaFinalizacion(
                 request.getFechaFin() == null ? LocalDateTime.now() : request.getFechaFin());
@@ -84,6 +85,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         entrenamiento.setIdFrontend(resolverClientIdActualizacion(entrenamiento, request));
         entrenamiento.setPlantillaSesion(buscarPlantillaSesionOpcional(request.getIdSesion(), usuario.getId()));
         entrenamiento.setNombreSesion(normalizar(request.getNombreSesion()));
+        entrenamiento.setObservaciones(normalizarNullable(request.getObservaciones()));
         entrenamiento.setFechaInicio(request.getFechaInicio() == null ? entrenamiento.getFechaInicio() : request.getFechaInicio());
         entrenamiento.setFechaFinalizacion(
                 request.getFechaFin() == null ? entrenamiento.getFechaFinalizacion() : request.getFechaFin());
@@ -250,6 +252,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         ejercicio.setEjercicioCatalogo(ejercicioCatalogo);
         ejercicio.setNombre(normalizar(request.getNombre()));
         ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
+        ejercicio.setObservaciones(normalizarNullable(request.getObservaciones()));
         ejercicio.setGrupoMuscular(normalizarNullable(request.getGrupoMuscular()));
         ejercicio.setPatronMovimiento(normalizarNullable(request.getPatronMovimiento()));
         ejercicio.setEquipamiento(normalizarNullable(request.getEquipamiento()));
@@ -435,6 +438,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
     private RegistroEntrenamientoResponseDto toResponse(RegistroEntrenamientoVO entrenamiento) {
         RegistroEntrenamientoResponseDto response = new RegistroEntrenamientoResponseDto();
         response.setId(textoConPreferencia(entrenamiento.getIdFrontend(), entrenamiento.getId()));
+        response.setPersistedId(toTexto(entrenamiento.getId()));
         response.setIdSesion(entrenamiento.getPlantillaSesion() == null
                 ? null
                 : textoConPreferencia(
@@ -442,6 +446,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
                         entrenamiento.getPlantillaSesion().getId()));
         response.setClientId(entrenamiento.getIdFrontend());
         response.setNombreSesion(entrenamiento.getNombreSesion());
+        response.setObservaciones(entrenamiento.getObservaciones());
         response.setFechaInicio(entrenamiento.getFechaInicio());
         response.setFechaFin(entrenamiento.getFechaFinalizacion());
         response.setCreatedAt(entrenamiento.getCreatedAt());
@@ -453,6 +458,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
 
     private RegistroEjercicioResponseDto toResponse(RegistroEjercicioVO ejercicio) {
         RegistroEjercicioResponseDto response = new RegistroEjercicioResponseDto();
+        response.setPersistedId(toTexto(ejercicio.getId()));
         response.setIdEjercicio(ejercicio.getPlantillaEjercicio() == null
                 ? textoConPreferencia(ejercicio.getIdFrontend(), ejercicio.getId())
                 : textoConPreferencia(
@@ -465,6 +471,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
         response.setCatalogoEjercicioId(obtenerCatalogoEjercicioId(ejercicio));
         response.setNombre(ejercicio.getNombre());
         response.setDescripcion(ejercicio.getDescripcion());
+        response.setObservaciones(ejercicio.getObservaciones());
         response.setGrupoMuscular(ejercicio.getGrupoMuscular());
         response.setPatronMovimiento(ejercicio.getPatronMovimiento());
         response.setEquipamiento(ejercicio.getEquipamiento());
@@ -500,6 +507,7 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
     private RegistroSerieResponseDto toResponse(RegistroSerieVO serie) {
         RegistroSerieResponseDto response = new RegistroSerieResponseDto();
         response.setId(textoConPreferencia(serie.getIdFrontend(), serie.getId()));
+        response.setPersistedId(toTexto(serie.getId()));
         response.setNumeroSerie(serie.getNumeroSerie());
         response.setRepeticiones(serie.getRepeticiones());
         response.setPeso(serie.getPeso());
@@ -557,6 +565,11 @@ public class EntrenamientoServiceImpl implements EntrenamientoService {
     }
 
     private String normalizarNullable(String valor) {
-        return valor == null ? null : valor.trim();
+        if (valor == null) {
+            return null;
+        }
+
+        String normalizado = valor.trim();
+        return normalizado.isEmpty() ? null : normalizado;
     }
 }

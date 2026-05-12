@@ -11,12 +11,14 @@ import lombok.Setter;
 @Setter
 public class RegistroEjercicioResponseDto {
 
+    private String persistedId;
     private String idEjercicio;
     private String clientId;
     private String plantillaEjercicioId;
     private String catalogoEjercicioId;
     private String nombre;
     private String descripcion;
+    private String observaciones;
     private String grupoMuscular;
     private String patronMovimiento;
     private String equipamiento;

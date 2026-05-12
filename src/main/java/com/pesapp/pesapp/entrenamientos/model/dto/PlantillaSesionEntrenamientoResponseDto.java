@@ -14,6 +14,7 @@ public class PlantillaSesionEntrenamientoResponseDto {
     private String idSesion;
     private String clientId;
     private String nombreSesion;
+    private String observaciones;
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
     private LocalDateTime createdAt;

@@ -10,6 +10,7 @@ import lombok.Setter;
 public class RegistroSerieResponseDto {
 
     private String id;
+    private String persistedId;
     private Integer numeroSerie;
     private Integer repeticiones;
     private BigDecimal peso;

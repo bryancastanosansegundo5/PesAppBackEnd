@@ -39,6 +39,7 @@ class EntrenamientoControllerTest {
     void debeActualizarEntrenamientoHistorico() throws Exception {
         RegistroEntrenamientoResponseDto response = new RegistroEntrenamientoResponseDto();
         response.setId("123");
+        response.setPersistedId("123");
         response.setClientId("entrenamiento-cliente-1");
         response.setNombreSesion("Empuje");
         response.setFechaInicio(LocalDateTime.of(2026, 4, 30, 10, 0));
@@ -61,6 +62,7 @@ class EntrenamientoControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("123"))
+                .andExpect(jsonPath("$.persistedId").value("123"))
                 .andExpect(jsonPath("$.clientId").value("entrenamiento-cliente-1"))
                 .andExpect(jsonPath("$.version").value(4));
     }

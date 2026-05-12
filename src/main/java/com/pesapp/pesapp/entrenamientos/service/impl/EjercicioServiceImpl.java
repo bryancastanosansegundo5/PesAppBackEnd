@@ -113,6 +113,7 @@ public class EjercicioServiceImpl implements EjercicioService {
     private void copiarCampos(EjercicioRequestDto request, EjercicioVO ejercicio) {
         ejercicio.setNombre(normalizar(request.getNombre()));
         ejercicio.setDescripcion(normalizarNullable(request.getDescripcion()));
+        ejercicio.setObservaciones(normalizarNullable(request.getObservaciones()));
         ejercicio.setGrupoMuscular(normalizarNullable(request.getGrupoMuscular()));
         ejercicio.setPatronMovimiento(normalizarNullable(request.getPatronMovimiento()));
         ejercicio.setEquipamiento(normalizarNullable(request.getEquipamiento()));
@@ -158,6 +159,7 @@ public class EjercicioServiceImpl implements EjercicioService {
         response.setClientId(ejercicio.getClientId());
         response.setNombre(ejercicio.getNombre());
         response.setDescripcion(ejercicio.getDescripcion());
+        response.setObservaciones(ejercicio.getObservaciones());
         response.setGrupoMuscular(ejercicio.getGrupoMuscular());
         response.setPatronMovimiento(ejercicio.getPatronMovimiento());
         response.setEquipamiento(ejercicio.getEquipamiento());
