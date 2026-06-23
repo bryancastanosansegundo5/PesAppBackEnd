@@ -14,10 +14,12 @@ import com.pesapp.pesapp.usuarios.model.dto.LogoutResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.RegistroUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.UsuarioResponseDto;
 import com.pesapp.pesapp.usuarios.model.vo.RolUsuario;
+import com.pesapp.pesapp.usuarios.model.vo.TipoAccesoApp;
 import com.pesapp.pesapp.usuarios.model.vo.RefreshTokenVO;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.repository.RefreshTokenRepository;
 import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
+import com.pesapp.pesapp.usuarios.service.RegistroAccesoAppService;
 import com.pesapp.pesapp.usuarios.service.UsuarioService;
 import jakarta.persistence.EntityNotFoundException;
 import java.nio.charset.StandardCharsets;
@@ -54,6 +56,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final RegistroAccesoAppService registroAccesoAppService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.auth.refresh-token-expiration}")
@@ -86,6 +89,7 @@ public class UsuarioServiceImpl implements UsuarioService {
                 new UsernamePasswordAuthenticationToken(username, request.getPassword()));
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         UsuarioVO usuario = buscarPorUsername(username);
+        registroAccesoAppService.registrarAcceso(usuario, TipoAccesoApp.LOGIN);
 
         return crearSesionAutenticada(usuario, userDetails);
     }
@@ -106,6 +110,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         tokenPersistido.setRevokedAt(LocalDateTime.now());
         UsuarioVO usuario = tokenPersistido.getUsuario();
+        registroAccesoAppService.registrarAcceso(usuario, TipoAccesoApp.REFRESH);
         return crearSesionAutenticada(usuario, crearUserDetails(usuario));
     }
 

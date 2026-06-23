@@ -16,9 +16,11 @@ import com.pesapp.pesapp.usuarios.model.dto.DisponibilidadUsernameResponseDto;
 import com.pesapp.pesapp.usuarios.model.dto.LoginRequestDto;
 import com.pesapp.pesapp.usuarios.model.dto.RegistroUsuarioRequestDto;
 import com.pesapp.pesapp.usuarios.model.vo.RolUsuario;
+import com.pesapp.pesapp.usuarios.model.vo.TipoAccesoApp;
 import com.pesapp.pesapp.usuarios.model.vo.UsuarioVO;
 import com.pesapp.pesapp.usuarios.repository.RefreshTokenRepository;
 import com.pesapp.pesapp.usuarios.repository.UsuarioRepository;
+import com.pesapp.pesapp.usuarios.service.RegistroAccesoAppService;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +52,9 @@ class UsuarioServiceImplTest {
     @Mock
     private AuthenticationManager authenticationManager;
 
+    @Mock
+    private RegistroAccesoAppService registroAccesoAppService;
+
     private UsuarioServiceImpl usuarioService;
 
     private JwtService jwtService;
@@ -67,7 +72,8 @@ class UsuarioServiceImplTest {
                 refreshTokenRepository,
                 passwordEncoder,
                 authenticationManager,
-                jwtService);
+                jwtService,
+                registroAccesoAppService);
         ReflectionTestUtils.setField(usuarioService, "refreshTokenExpiration", 2_592_000_000L);
     }
 
@@ -165,6 +171,7 @@ class UsuarioServiceImplTest {
 
         assertThat(sesion.getResponse().getUsuario().getUsername()).isEqualTo("bryan");
         verify(authenticationManager).authenticate(new UsernamePasswordAuthenticationToken("bryan", "Secret123"));
+        verify(registroAccesoAppService).registrarAcceso(usuario, TipoAccesoApp.LOGIN);
     }
 
     @Test
